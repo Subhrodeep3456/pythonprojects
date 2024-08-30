@@ -5,7 +5,7 @@ import pickle
 # import mysql.connector
 
 
-print("Trans Oceanic Airlines")
+print("East Sky Airlines")
 print("Welcome")
 print("Menu")
 ans = 'yes'
@@ -24,7 +24,7 @@ while ans == 'yes':
             cn = input("Full name  : ")
             age = int(input("Enter age : "))
             sex = input("Gender : ")
-            cl = input("Enter class (Business/Economy/First/Premium Economy): ")
+            cl = input("Enter class (Business/Economy/Premium Economy): ")
             d = input("Enter destination: ")
             a['Customer Name'] = cn
             a['Age'] = age
@@ -35,7 +35,7 @@ while ans == 'yes':
         f.close()
 
         #Function to read the file
-        def redreport():
+        def redreport(): #View
             import pickle
             a = {}
             f = open('customer.dat','rb+')
@@ -47,7 +47,7 @@ while ans == 'yes':
                 f.close()
             
         #Add records
-        def add():
+        def add(): #Add
             import pickle
             f = open('customer.dat','wb')
         a = {}
@@ -56,7 +56,7 @@ while ans == 'yes':
             cn = input("Full name  : ")
             age = int(input("Enter age : "))
             sex = input("Gender : ")
-            cl = input("Enter class (Business/Economy/First/Premium Economy): ")
+            cl = input("Enter class (Business/Economy/Premium Economy): ")
             d = input("Enter destination: ")
             a['Customer Name'] = cn
             a['Age'] = age
@@ -67,7 +67,7 @@ while ans == 'yes':
         f.close()
 
 
-        def search():
+        def search(): #Search
             import pickle 
             p = {}
             found = False
@@ -86,7 +86,7 @@ while ans == 'yes':
                 else:
                     print("Found")
                 f.close()
-        def modify():
+        def modify(): #Modify
             import pickle
             found = False
             f = open('customer.dat','rb')
@@ -111,7 +111,7 @@ while ans == 'yes':
                 g.close()
 
 
-        def delete():
+        def delete(): #Delete
             import pickle
             found = False
             f = open('customer.dat','rb')
@@ -160,7 +160,30 @@ while ans == 'yes':
     #     import csv
     #     with open('seating.csv') as cf:
 
+    elif p == 2:
+        print("Billing")
+        import csv
+        f = open('products.csv', 'wb+')
+        l = csv.reader(f)
+        L = []
+        for line in l:
+            L.append(line)
+        f.close()
+        print('Following seats are available : ')
+        print('-----------------------------------------------------------------------')
+        import random
 
+        def list_random_seats():
+            rows = 29
+            seats = ['A', 'B', 'C', 'D', 'E', 'F']
+            
+            for row in range(1, rows + 1):
+                num_seats = random.randint(1, len(seats))  # Generate a random number of seats for each row
+                row_seats = [f"{row}{seats[i]}" for i in range(num_seats)]
+                print(" ".join(row_seats))
 
-
-
+        # Call the function to list all seats
+        list_random_seats()
+        print('-----------------------------------------------------------------------')
+        print("Select available seat")
+        s = input("Seat : ")

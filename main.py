@@ -3,8 +3,7 @@ import random
 import csv
 
 def display_menu():
-    print("\nWelcome to East Sky Airline")
-    print("Airline Management")
+    print("\nWelcome to the East Sky Airlines Management")
     print("1. Customers")
     print("2. Seating")
     print("3. Billing")
@@ -22,12 +21,12 @@ def display_customer_menu():
     print("7. Back to Main Menu")
 
 def add_customer():
-    full_name = input("Enter full name: ")
+    fn = input("Enter full name: ")
     age = input("Enter age: ")
     sex = input("Enter sex (M/F): ")
     destination = input("Enter destination: ")
 
-    customer = [full_name, age, sex, destination]
+    customer = [fn, age, sex, destination]
 
     with open('customer_data.pkl', 'ab') as file:
         pickle.dump(customer, file)
@@ -218,7 +217,7 @@ def book_seat():
     else:
         print("Seat not found or already booked.")
 
-def cancel_seat():
+def delete_seat():
     section = input("Enter section (Business/Premium Economy/Economy): ")
     seat = input("Enter seat number: ")
     updated_seats = []
@@ -232,7 +231,7 @@ def cancel_seat():
                     row[2] = 'Available'
                     found = True
                 else:
-                    print("Seat is not booked.")
+                    print()
             updated_seats.append(row)
 
     if found:
@@ -273,7 +272,7 @@ def main():
                 print("\nSeating Management")
                 print("1. Display Seating")
                 print("2. Book Seat")
-                print("3. Cancel Seat")
+                print("3. Delete Seat")
                 print("4. Back to Main Menu")
                 seating_choice = input("Enter your choice: ")
                 if seating_choice == '1':
@@ -281,7 +280,7 @@ def main():
                 elif seating_choice == '2':
                     book_seat()
                 elif seating_choice == '3':
-                    cancel_seat()
+                    delete_seat()
                 elif seating_choice == '4':
                     break
                 else:

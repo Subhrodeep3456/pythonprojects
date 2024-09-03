@@ -3,7 +3,8 @@ import random
 import csv
 
 def display_menu():
-    print("\nWelcome to the East Sky Airline Management")
+    print("\nWelcome to East Sky Airline")
+    print("Menu")
     print("1. Customers")
     print("2. Seating")
     print("3. Billing")

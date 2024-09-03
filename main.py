@@ -1,189 +1,220 @@
-#CSV Files, Binary Files and MYSQL
-#Airline company
-import csv
-import pickle 
-# import mysql.connector
+import pickle
+import os
 
-
-print("East Sky Airlines")
-print("Welcome")
-print("Menu")
-ans = 'yes'
-while ans == 'yes':
+def display_menu():
+    print("\nWelcome to the Aircraft Management System")
     print("1. Customers")
     print("2. Seating")
     print("3. Billing")
     print("4. Report")
-    print('5. Exit')
-    p = int(input("Enter your choice (1-5): "))
-    if p == 1:
-        f = open('customer.dat','wb')
-        a = {}
-        an = 'y'
-        while an == 'y':
-            cn = input("Full name  : ")
-            age = int(input("Enter age : "))
-            sex = input("Gender : ")
-            cl = input("Enter class (Business/Economy/Premium Economy): ")
-            d = input("Enter destination: ")
-            a['Customer Name'] = cn
-            a['Age'] = age
-            a['Gender'] = sex
-            a['Class'] = cl
-            pickle.dump(a,f)
-            an = input('Continue ? (y/n): ')
-        f.close()
+    print("5. Back to menu")
+    print("6. Exit")
 
-        #Function to read the file
-        def redreport(): #View
-            import pickle
-            a = {}
-            f = open('customer.dat','rb+')
-            try:
-                while True:
-                    a = pickle.load(f)
-                    print(a)
-            except EOFError:
-                f.close()
-            
-        #Add records
-        def add(): #Add
-            import pickle
-            f = open('customer.dat','wb')
-        a = {}
-        an = 'y'
-        while an == 'y':
-            cn = input("Full name  : ")
-            age = int(input("Enter age : "))
-            sex = input("Gender : ")
-            cl = input("Enter class (Business/Economy/Premium Economy): ")
-            d = input("Enter destination: ")
-            a['Customer Name'] = cn
-            a['Age'] = age
-            a['Gender'] = sex
-            a['Class'] = cl
-            pickle.dump(a,f)
-            an = input('Continue ? (y/n): ')
-        f.close()
+def display_customer_menu():
+    print("\nCustomer Management")
+    print("1. Add Customer")
+    print("2. Search Customer")
+    print("3. Modify Customer")
+    print("4. Delete Customer")
+    print("5. Read Customer Data")
+    print("6. Add More Details")
+    print("7. Back to Main Menu")
 
+def add_customer():
+    full_name = input("Enter full name: ")
+    age = input("Enter age: ")
+    sex = input("Enter sex (M/F): ")
+    destination = input("Enter destination: ")
 
-        def search(): #Search
-            import pickle 
-            p = {}
-            found = False
-            f = open('customer.dat','rb')
-            s = input("Enter customer name : ")
-            try:
-                print("Searching...")
-                while True:
-                    s = pickle.load(f)
-                    if p['Customer Name'] == s:
-                        print(s)
-                        found = True
-            except EOFError:
-                if found == False:
-                    print("No records found")
+    customer_data = {
+        'full_name': full_name,
+        'age': age,
+        'sex': sex,
+        'destination': destination
+    }
+
+    with open('customer_data.bin', 'ab') as file:
+        pickle.dump(customer_data, file)
+
+    print("Customer data saved in binary format.")
+
+def search_customer():
+    name = input("Enter the name to search: ")
+    found = False
+    with open('customer_data.bin', 'rb') as file:
+        try:
+            while True:
+                customer = pickle.load(file)
+                if customer['full_name'] == name:
+                    print("Customer found:", customer)
+                    found = True
+                    break
+        except EOFError:
+            if not found:
+                print("Customer not found.")
+
+def modify_customer():
+    name = input("Enter the name to modify: ")
+    customers = []
+    found = False
+    with open('customer_data.bin', 'rb') as file:
+        try:
+            while True:
+                customer = pickle.load(file)
+                if customer['full_name'] == name:
+                    print("Current details:", customer)
+                    customer['full_name'] = input("Enter new full name: ")
+                    customer['age'] = input("Enter new age: ")
+                    customer['sex'] = input("Enter new sex (M/F): ")
+                    customer['destination'] = input("Enter new destination: ")
+                    found = True
+                customers.append(customer)
+        except EOFError:
+            pass
+
+    if found:
+        with open('customer_data.bin', 'wb') as file:
+            for customer in customers:
+                pickle.dump(customer, file)
+        print("Customer details updated.")
+    else:
+        print("Customer not found.")
+
+def delete_customer():
+    name = input("Enter the name to delete: ")
+    customers = []
+    found = False
+    with open('customer_data.bin', 'rb') as file:
+        try:
+            while True:
+                customer = pickle.load(file)
+                if customer['full_name'] != name:
+                    customers.append(customer)
                 else:
-                    print("Found")
-                f.close()
-        def modify(): #Modify
-            import pickle
-            found = False
-            f = open('customer.dat','rb')
-            g = open('customer1.dat','wb')
-            s = input("Enter customer name : ")
-            try:
-                while True:
-                    p = pickle.load(f)
-                    if p['Customer Name'] == s:
-                        print("Customer found")
-                        p['Age'] = int(input("Enter new age : "))
-                        p['Gender'] = input("Enter new gender : ")
-                        p['Class'] = input("Enter new class : ")
-                        pickle.dump(p,g)
-                        found = True
-            except EOFError:
-                if found == False:
-                    print("No records found")
+                    found = True
+        except EOFError:
+            pass
+
+    if found:
+        with open('customer_data.bin', 'wb') as file:
+            for customer in customers:
+                pickle.dump(customer, file)
+        print("Customer record deleted.")
+    else:
+        print("Customer not found.")
+
+def read_customer_data():
+    with open('customer_data.bin', 'rb') as file:
+        try:
+            while True:
+                customer = pickle.load(file)
+                print(customer)
+        except EOFError:
+            pass
+
+def add_more_details():
+    name = input("Enter the name to add more details: ")
+    customers = []
+    found = False
+    with open('customer_data.bin', 'rb') as file:
+        try:
+            while True:
+                customer = pickle.load(file)
+                if customer['full_name'] == name:
+                    print("Current details:", customer)
+                    additional_info = input("Enter additional details: ")
+                    customer['additional_info'] = additional_info
+                    found = True
+                customers.append(customer)
+        except EOFError:
+            pass
+
+    if found:
+        with open('customer_data.bin', 'wb') as file:
+            for customer in customers:
+                pickle.dump(customer, file)
+        print("Additional details added.")
+    else:
+        print("Customer not found.")
+
+def initialize_seats():
+    seats = {
+        'Business': ['1A', '1B', '1C', '1D', '2A', '2B', '2C', '2D'],
+        'Premium Economy': ['3A', '3B', '3C', '3D', '4A', '4B', '4C', '4D'],
+        'Economy': ['5A', '5B', '5C', '5D', '6A', '6B', '6C', '6D',
+                    '7A', '7B', '7C', '7D', '8A', '8B', '8C', '8D']
+    }
+    with open('seating_data.bin', 'wb') as file:
+        pickle.dump(seats, file)
+    print("Seating initialized.")
+
+# Function to display available seats and let user choose one
+def handle_seating():
+    try:
+        with open('seating_data.bin', 'rb') as file:
+            seats = pickle.load(file)
+    except FileNotFoundError:
+        initialize_seats()
+        with open('seating_data.bin', 'rb') as file:
+            seats = pickle.load(file)
+
+    print("\nAvailable Seats:")
+    for class_type, seat_list in seats.items():
+        print(f"{class_type} Class: {', '.join(seat_list)}")
+    
+    selected_class = input("\nChoose class (Business, Premium Economy, Economy): ").strip()
+    if selected_class not in seats:
+        print("Invalid class selected.")
+        return
+
+    selected_seat = input(f"Choose a seat from {selected_class} Class: ").strip().upper()
+    if selected_seat in seats[selected_class]:
+        seats[selected_class].remove(selected_seat)
+        with open('seating_data.bin', 'wb') as file:
+            pickle.dump(seats, file)
+        print(f"Seat {selected_seat} successfully booked in {selected_class} Class.")
+    else:
+        print("Seat not available or invalid seat number.")
+
+def main():
+    while True:
+        display_menu()
+        choice = input("Please select an option (1-6): ")
+        
+        if choice == '1':
+            while True:
+                display_customer_menu()
+                customer_choice = input("Please select an option (1-7): ")
+                
+                if customer_choice == '1':
+                    add_customer()
+                elif customer_choice == '2':
+                    search_customer()
+                elif customer_choice == '3':
+                    modify_customer()
+                elif customer_choice == '4':
+                    delete_customer()
+                elif customer_choice == '5':
+                    read_customer_data()
+                elif customer_choice == '6':
+                    add_more_details()
+                elif customer_choice == '7':
+                    break
                 else:
-                    print("Modified")
-                f.close()
-                g.close()
+                    print("Invalid choice. Please select a valid option.")
+        elif choice == '2':
+            handle_seating()
+        elif choice == '3':
+            handle_billing()
+        elif choice == '4':
+            handle_report()
+        elif choice == '5':
+            print("Returning to menu...")
+        elif choice == '6':
+            print("Exiting the program. Have a nice day!")
+            break
+        else:
+            print("Invalid choice. Please select a valid option.")
 
-
-        def delete(): #Delete
-            import pickle
-            found = False
-            f = open('customer.dat','rb')
-            g = open('customer1.dat','wb')
-            s = input("Enter customer name : ")
-            try:
-                while True:
-                    p = pickle.load(f)
-                    if p['Customer Name'] == s:
-                        print("Customer found")
-                        found = True
-                    else:
-                        pickle.dump(p,g)
-            except EOFError:
-                if found == False:
-                    print("No records found")
-                else:
-                    print("Deleted")
-                f.close()
-                g.close()
-
-        answer = 'y'
-        while answer == 'y':
-            print("1 to view customer details")
-            print("2 to add customer details")
-            print("3 to search customer details")
-            print("4 to modify customer details")
-            print("5 to delete customer details")
-            print("6 to exit")
-            answer = input("Enter your choice : ")
-            if answer == '1':
-                redreport()
-            elif answer == '2':
-                add()
-            elif answer == '3':
-                search()
-            elif answer == '4':
-                modify()
-            elif answer == '5':
-                delete()
-            elif answer == '6':
-                break
-
-    # elif p == 2:
-    #     print("Seating")
-    #     import csv
-    #     with open('seating.csv') as cf:
-
-    elif p == 2:
-        print("Billing")
-        import csv
-        f = open('products.csv', 'wb+')
-        l = csv.reader(f)
-        L = []
-        for line in l:
-            L.append(line)
-        f.close()
-        print('Following seats are available : ')
-        print('-----------------------------------------------------------------------')
-        import random
-
-        def list_random_seats():
-            rows = 29
-            seats = ['A', 'B', 'C', 'D', 'E', 'F']
-            
-            for row in range(1, rows + 1):
-                num_seats = random.randint(1, len(seats))  # Generate a random number of seats for each row
-                row_seats = [f"{row}{seats[i]}" for i in range(num_seats)]
-                print(" ".join(row_seats))
-
-        # Call the function to list all seats
-        list_random_seats()
-        print('-----------------------------------------------------------------------')
-        print("Select available seat")
-        s = input("Seat : ")
+if __name__ == "__main__":
+    main()

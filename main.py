@@ -4,7 +4,7 @@ import csv
 
 def display_menu():
     print("\nWelcome to East Sky Airline")
-    print("Menu")
+    print("Airline Management")
     print("1. Customers")
     print("2. Seating")
     print("3. Billing")

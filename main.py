@@ -1,10 +1,9 @@
-import csv
 import pickle
 import random
+import csv
 
 def display_menu():
     print("\nWelcome to the Aircraft Management System")
-    print("East Sky Airlines")
     print("1. Customers")
     print("2. Seating")
     print("3. Billing")
@@ -27,24 +26,31 @@ def add_customer():
     sex = input("Enter sex (M/F): ")
     destination = input("Enter destination: ")
 
-    with open('customer_data.csv', 'a', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow([full_name, age, sex, destination])
+    customer = [full_name, age, sex, destination]
 
-    print("Customer data saved in CSV format.")
+    with open('customer_data.pkl', 'ab') as file:
+        pickle.dump(customer, file)
+
+    print("Customer data saved in binary format.")
 
 def search_customer():
     name = input("Enter the name to search: ")
     found = False
 
-    with open('customer_data.csv', 'r') as file:
-        reader = csv.reader(file)
-        for row in reader:
-            if row[0] == name:
-                print("Customer found:", row)
-                found = True
-                break
-    
+    try:
+        with open('customer_data.pkl', 'rb') as file:
+            while True:
+                try:
+                    customer = pickle.load(file)
+                    if customer[0] == name:
+                        print("Customer found:", customer)
+                        found = True
+                        break
+                except EOFError:
+                    break
+    except FileNotFoundError:
+        print("No customer data found.")
+
     if not found:
         print("Customer not found.")
 
@@ -53,22 +59,32 @@ def modify_customer():
     customers = []
     found = False
 
-    with open('customer_data.csv', 'r') as file:
-        reader = csv.reader(file)
-        for row in reader:
-            if row[0] == name:
-                print("Current details:", row)
-                row[0] = input("Enter new full name: ")
-                row[1] = input("Enter new age: ")
-                row[2] = input("Enter new sex (M/F): ")
-                row[3] = input("Enter new destination: ")
-                found = True
-            customers.append(row)
+    try:
+        with open('customer_data.pkl', 'rb') as file:
+            while True:
+                try:
+                    customer = pickle.load(file)
+                    customers.append(customer)
+                except EOFError:
+                    break
+    except FileNotFoundError:
+        print("No customer data found.")
+        return
+
+    for customer in customers:
+        if customer[0] == name:
+            print("Current details:", customer)
+            customer[0] = input("Enter new full name: ")
+            customer[1] = input("Enter new age: ")
+            customer[2] = input("Enter new sex (M/F): ")
+            customer[3] = input("Enter new destination: ")
+            found = True
+            break
 
     if found:
-        with open('customer_data.csv', 'w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerows(customers)
+        with open('customer_data.pkl', 'wb') as file:
+            for customer in customers:
+                pickle.dump(customer, file)
         print("Customer details updated.")
     else:
         print("Customer not found.")
@@ -78,47 +94,70 @@ def delete_customer():
     customers = []
     found = False
 
-    with open('customer_data.csv', 'r') as file:
-        reader = csv.reader(file)
-        for row in reader:
-            if row[0] != name:
-                customers.append(row)
-            else:
-                found = True
+    try:
+        with open('customer_data.pkl', 'rb') as file:
+            while True:
+                try:
+                    customer = pickle.load(file)
+                    if customer[0] != name:
+                        customers.append(customer)
+                    else:
+                        found = True
+                except EOFError:
+                    break
+    except FileNotFoundError:
+        print("No customer data found.")
+        return
 
     if found:
-        with open('customer_data.csv', 'w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerows(customers)
+        with open('customer_data.pkl', 'wb') as file:
+            for customer in customers:
+                pickle.dump(customer, file)
         print("Customer record deleted.")
     else:
         print("Customer not found.")
 
 def read_customer_data():
-    with open('customer_data.csv', 'r') as file:
-        reader = csv.reader(file)
-        for row in reader:
-            print(row)
+    try:
+        with open('customer_data.pkl', 'rb') as file:
+            while True:
+                try:
+                    customer = pickle.load(file)
+                    print(customer)
+                except EOFError:
+                    break
+    except FileNotFoundError:
+        print("No customer data found.")
 
 def add_more_details():
     name = input("Enter the name to add more details: ")
     customers = []
     found = False
 
-    with open('customer_data.csv', 'r') as file:
-        reader = csv.reader(file)
-        for row in reader:
-            if row[0] == name:
-                print("Current details:", row)
-                additional_info = input("Enter additional details: ")
-                row.append(additional_info)
-                found = True
-            customers.append(row)
+    try:
+        with open('customer_data.pkl', 'rb') as file:
+            while True:
+                try:
+                    customer = pickle.load(file)
+                    customers.append(customer)
+                except EOFError:
+                    break
+    except FileNotFoundError:
+        print("No customer data found.")
+        return
+
+    for customer in customers:
+        if customer[0] == name:
+            print("Current details:", customer)
+            additional_info = input("Enter additional details: ")
+            customer.append(additional_info)
+            found = True
+            break
 
     if found:
-        with open('customer_data.csv', 'w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerows(customers)
+        with open('customer_data.pkl', 'wb') as file:
+            for customer in customers:
+                pickle.dump(customer, file)
         print("Additional details added.")
     else:
         print("Customer not found.")

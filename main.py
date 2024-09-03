@@ -4,6 +4,7 @@ import random
 
 def display_menu():
     print("\nWelcome to the Aircraft Management System")
+    print("East Sky Airlines")
     print("1. Customers")
     print("2. Seating")
     print("3. Billing")

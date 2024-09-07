@@ -1,7 +1,101 @@
+import requests
+import tkinter as tk
+from tkinter import messagebox
+from PIL import Image, ImageTk
+
+# Function to fetch live flights from the API
+def fetch_live_flights():
+    api_key = "b2b595aa08945b73ee07954f64d38616"  # Replace this with your API key
+    url = f"http://api.aviationstack.com/v1/flights?access_key={api_key}"
+
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            flight_data = response.json()['data']
+            display_flights(flight_data)
+        else:
+            messagebox.showerror("Error", "Failed to fetch flight data.")
+    except requests.exceptions.RequestException as e:
+        messagebox.showerror("Error", f"API request failed: {e}")
+
+# Function to display flight data in a new window
+def display_flights(flight_data):
+    flight_window = tk.Toplevel(root)
+    flight_window.title("Live Flights")
+    flight_window.geometry("600x400")
+    flight_window.configure(bg="#1E1F26")
+    
+    title = tk.Label(flight_window, text="Live Flight Information", font=("Helvetica", 18, "bold"), bg="#1E1F26", fg="#BB86FC")
+    title.pack(pady=10)
+    
+    for flight in flight_data[:10]:  # Show up to 10 flights for simplicity
+        flight_info = f"Flight: {flight['flight']['iata']} | From: {flight['departure']['airport']} | To: {flight['arrival']['airport']} | Status: {flight['flight_status']}"
+        label = tk.Label(flight_window, text=flight_info, font=("Helvetica", 12), bg="#1E1F26", fg="white")
+        label.pack(pady=5)
+
+# Main application window setup
+root = tk.Tk()
+root.title("East Sky Airlines Management")
+root.geometry("800x600")
+root.configure(bg="#1E1F26")
+
+# Load and set the background image
+bg_image = Image.open("plane.png")
+bg_image = bg_image.resize((800, 600), Image.LANCZOS)
+bg_photo = ImageTk.PhotoImage(bg_image)
+
+bg_label = tk.Label(root, image=bg_photo)
+bg_label.place(x=0, y=0, relwidth=1, relheight=1)
+
+# Title Label
+title_label = tk.Label(root, text="East Sky Airlines Management", font=("Helvetica", 24, "bold"), bg="#1E1F26", fg="#BB86FC")
+title_label.pack(pady=20)
+
+# Container to hold the frames
+container = tk.Frame(root)
+container.pack(expand=True, fill="both")
+
+# Create frames for different functionalities
+customer_frame = tk.Frame(container, bg="#1E1F26")
+seating_frame = tk.Frame(container, bg="#1E1F26")
+billing_frame = tk.Frame(container, bg="#1E1F26")
+report_frame = tk.Frame(container, bg="#1E1F26")
+
+for frame in (customer_frame, seating_frame, billing_frame, report_frame):
+    frame.place(x=0, y=0, relwidth=1, relheight=1)
+
+# Main menu (button frame)
+button_frame = tk.Frame(root, bg="#1E1F26")
+button_frame.pack(pady=50)
+
+tk.Button(button_frame, text="Customer Management", font=("Helvetica", 12, "bold"), bg="#BB86FC", fg="white", width=25, command=lambda: show_frame(customer_frame)).grid(row=0, column=0, padx=10, pady=10)
+tk.Button(button_frame, text="Seating Management", font=("Helvetica", 12, "bold"), bg="#BB86FC", fg="white", width=25, command=lambda: show_frame(seating_frame)).grid(row=1, column=0, padx=10, pady=10)
+tk.Button(button_frame, text="Billing", font=("Helvetica", 12, "bold"), bg="#BB86FC", fg="white", width=25, command=lambda: show_frame(billing_frame)).grid(row=2, column=0, padx=10, pady=10)
+tk.Button(button_frame, text="Report", font=("Helvetica", 12, "bold"), bg="#BB86FC", fg="white", width=25, command=lambda: show_frame(report_frame)).grid(row=3, column=0, padx=10, pady=10)
+tk.Button(button_frame, text="Check Live Flights", font=("Helvetica", 12, "bold"), bg="#BB86FC", fg="white", width=25, command=fetch_live_flights).grid(row=4, column=0, padx=10, pady=10)
+tk.Button(button_frame, text="Exit", font=("Helvetica", 12, "bold"), bg="#E74C3C", fg="white", width=25, command=root.quit).grid(row=5, column=0, padx=10, pady=10)
+
+# Frame contents
+tk.Label(customer_frame, text="Customer Management", font=("Helvetica", 24), bg="#1E1F26", fg="white").pack(pady=20)
+tk.Label(seating_frame, text="Seating Management", font=("Helvetica", 24), bg="#1E1F26", fg="white").pack(pady=20)
+tk.Label(billing_frame, text="Billing", font=("Helvetica", 24), bg="#1E1F26", fg="white").pack(pady=20)
+tk.Label(report_frame, text="Report", font=("Helvetica", 24), bg="#1E1F26", fg="white").pack(pady=20)
+
+# Function to show the selected frame
+def show_frame(frame):
+    frame.tkraise()
+
+# Initialize the customer frame on start
+show_frame(customer_frame)
+
+# Start the Tkinter loop
+root.mainloop()
+
+
+
 import pickle
 import random
 import csv
-import tkinter
 
 def display_menu():
     print("\nWelcome to the East Sky Airlines Management")
@@ -299,69 +393,4 @@ def main():
 if __name__ == "__main__":
     main()
 
-import tkinter as tk
-from tkinter import ttk, messagebox
-from PIL import Image, ImageTk
 
-# Functions to be called by the buttons (placeholders for now)
-def customer_management():
-    messagebox.showinfo("Customer Management", "Customer Management Selected")
-
-def seating_management():
-    messagebox.showinfo("Seating Management", "Seating Management Selected")
-
-def billing_management():
-    messagebox.showinfo("Billing", "Billing functionality not implemented yet.")
-
-def report_management():
-    messagebox.showinfo("Report", "Report functionality not implemented yet.")
-
-def exit_system():
-    root.quit()
-
-# Main application window setup
-root = tk.Tk()
-root.title("East Sky Airlines Management")
-root.geometry("800x600")
-root.configure(bg="#1E1F26")
-
-# Load and set the background image
-bg_image = Image.open("plane.png")
-bg_image = bg_image.resize((800, 600), Image.LANCZOS)
-bg_photo = ImageTk.PhotoImage(bg_image)
-
-bg_label = tk.Label(root, image=bg_photo)
-bg_label.place(x=0, y=0, relwidth=1, relheight=1)
-
-# Style configurations
-BUTTON_FONT = ("Helvetica", 12, "bold")
-PRIMARY_COLOR = "#BB86FC"
-SECONDARY_COLOR = "#03DAC6"
-TEXT_COLOR = "#FFFFFF"
-
-# Title Label
-title_label = tk.Label(root, text="East Sky Airlines Management", font=("Helvetica", 24, "bold"), bg="#1E1F26", fg=PRIMARY_COLOR)
-title_label.pack(pady=20)
-
-# Frame for buttons
-button_frame = tk.Frame(root, bg="#1E1F26")
-button_frame.pack(pady=50)
-
-# Buttons for the different functionalities
-customer_button = tk.Button(button_frame, text="Customer Management", font=BUTTON_FONT, bg=PRIMARY_COLOR, fg=TEXT_COLOR, width=25, command=customer_management)
-customer_button.grid(row=0, column=0, padx=10, pady=10)
-
-seating_button = tk.Button(button_frame, text="Seating Management", font=BUTTON_FONT, bg=PRIMARY_COLOR, fg=TEXT_COLOR, width=25, command=seating_management)
-seating_button.grid(row=1, column=0, padx=10, pady=10)
-
-billing_button = tk.Button(button_frame, text="Billing", font=BUTTON_FONT, bg=PRIMARY_COLOR, fg=TEXT_COLOR, width=25, command=billing_management)
-billing_button.grid(row=2, column=0, padx=10, pady=10)
-
-report_button = tk.Button(button_frame, text="Report", font=BUTTON_FONT, bg=PRIMARY_COLOR, fg=TEXT_COLOR, width=25, command=report_management)
-report_button.grid(row=3, column=0, padx=10, pady=10)
-
-exit_button = tk.Button(button_frame, text="Exit", font=BUTTON_FONT, bg="#E74C3C", fg=TEXT_COLOR, width=25, command=exit_system)
-exit_button.grid(row=4, column=0, padx=10, pady=10)
-
-# Start the Tkinter loop
-root.mainloop()

@@ -1,6 +1,7 @@
 import pickle
 import random
 import csv
+import tkinter
 
 def display_menu():
     print("\nWelcome to the East Sky Airlines Management")
@@ -297,3 +298,70 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+import tkinter as tk
+from tkinter import ttk, messagebox
+from PIL import Image, ImageTk
+
+# Functions to be called by the buttons (placeholders for now)
+def customer_management():
+    messagebox.showinfo("Customer Management", "Customer Management Selected")
+
+def seating_management():
+    messagebox.showinfo("Seating Management", "Seating Management Selected")
+
+def billing_management():
+    messagebox.showinfo("Billing", "Billing functionality not implemented yet.")
+
+def report_management():
+    messagebox.showinfo("Report", "Report functionality not implemented yet.")
+
+def exit_system():
+    root.quit()
+
+# Main application window setup
+root = tk.Tk()
+root.title("East Sky Airlines Management")
+root.geometry("800x600")
+root.configure(bg="#1E1F26")
+
+# Load and set the background image
+bg_image = Image.open("plane.png")
+bg_image = bg_image.resize((800, 600), Image.LANCZOS)
+bg_photo = ImageTk.PhotoImage(bg_image)
+
+bg_label = tk.Label(root, image=bg_photo)
+bg_label.place(x=0, y=0, relwidth=1, relheight=1)
+
+# Style configurations
+BUTTON_FONT = ("Helvetica", 12, "bold")
+PRIMARY_COLOR = "#BB86FC"
+SECONDARY_COLOR = "#03DAC6"
+TEXT_COLOR = "#FFFFFF"
+
+# Title Label
+title_label = tk.Label(root, text="East Sky Airlines Management", font=("Helvetica", 24, "bold"), bg="#1E1F26", fg=PRIMARY_COLOR)
+title_label.pack(pady=20)
+
+# Frame for buttons
+button_frame = tk.Frame(root, bg="#1E1F26")
+button_frame.pack(pady=50)
+
+# Buttons for the different functionalities
+customer_button = tk.Button(button_frame, text="Customer Management", font=BUTTON_FONT, bg=PRIMARY_COLOR, fg=TEXT_COLOR, width=25, command=customer_management)
+customer_button.grid(row=0, column=0, padx=10, pady=10)
+
+seating_button = tk.Button(button_frame, text="Seating Management", font=BUTTON_FONT, bg=PRIMARY_COLOR, fg=TEXT_COLOR, width=25, command=seating_management)
+seating_button.grid(row=1, column=0, padx=10, pady=10)
+
+billing_button = tk.Button(button_frame, text="Billing", font=BUTTON_FONT, bg=PRIMARY_COLOR, fg=TEXT_COLOR, width=25, command=billing_management)
+billing_button.grid(row=2, column=0, padx=10, pady=10)
+
+report_button = tk.Button(button_frame, text="Report", font=BUTTON_FONT, bg=PRIMARY_COLOR, fg=TEXT_COLOR, width=25, command=report_management)
+report_button.grid(row=3, column=0, padx=10, pady=10)
+
+exit_button = tk.Button(button_frame, text="Exit", font=BUTTON_FONT, bg="#E74C3C", fg=TEXT_COLOR, width=25, command=exit_system)
+exit_button.grid(row=4, column=0, padx=10, pady=10)
+
+# Start the Tkinter loop
+root.mainloop()

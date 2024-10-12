@@ -129,7 +129,7 @@ def add_customer():
     print("Customer data saved in binary format.")
 
 def search_customer():
-    name = input("Enter the name to search: ")
+    name = input("Enter the name to search: ").strip()
     found = False
 
     try:
@@ -137,10 +137,9 @@ def search_customer():
             while True:
                 try:
                     customer = pickle.load(file)
-                    if customer[0] == name:
+                    if customer[0].lower() == name.lower():
                         print("Customer found:", customer)
                         found = True
-                        break
                 except EOFError:
                     break
     except FileNotFoundError:
@@ -148,6 +147,7 @@ def search_customer():
 
     if not found:
         print("Customer not found.")
+
 
 def modify_customer():
     name = input("Enter the name to modify: ")
@@ -259,18 +259,21 @@ def add_more_details():
 
 # Seating functions
 def initialize_seats():
-    seats = {
-        'Business': [f'{row}{seat}' for row in range(1, 9) for seat in 'ABCDEF'],
-        'Premium Economy': [f'{row}{seat}' for row in range(9, 19) for seat in 'ABCDEF'],
-        'Economy': [f'{row}{seat}' for row in range(19, 30) for seat in 'ABCDEF']
-    }
-    with open('seating_data.csv', 'w', newline='') as file:
-        writer = csv.writer(file)
-        for section, seat_list in seats.items():
-            for seat in seat_list:
-                writer.writerow([section, seat, 'Available'])
+    try:
+        seats = {
+            'Business': [f'{row}{seat}' for row in range(1, 9) for seat in 'ABCDEF'],
+            'Premium Economy': [f'{row}{seat}' for row in range(9, 19) for seat in 'ABCDEF'],
+            'Economy': [f'{row}{seat}' for row in range(19, 30) for seat in 'ABCDEF']
+        }
+        with open('seating_data.csv', 'w', newline='') as file:
+            writer = csv.writer(file)
+            for section, seat_list in seats.items():
+                for seat in seat_list:
+                    writer.writerow([section, seat, 'Available'])
+        print("Seating data initialized.")
+    except Exception as e:
+        print(f"Error initializing seats: {e}")
 
-    print("Seating data initialized.")
 
 def display_seating():
     seats = {'Business': [], 'Premium Economy': [], 'Economy': []}
@@ -288,8 +291,14 @@ def display_seating():
         print()
 
 def book_seat():
-    section = input("Enter section (Business/Premium Economy/Economy): ")
-    seat = input("Enter seat number: ")
+    section = input("Enter section (Business/Premium Economy/Economy): ").strip()
+    seat = input("Enter seat number: ").strip()
+    
+    # Valid sections
+    if section not in ['Business', 'Premium Economy', 'Economy']:
+        print("Invalid section. Please choose from Business, Premium Economy, or Economy.")
+        return
+
     updated_seats = []
     found = False
 
@@ -311,6 +320,7 @@ def book_seat():
         print("Seat booked successfully.")
     else:
         print("Seat not found or already booked.")
+
 
 def delete_seat():
     section = input("Enter section (Business/Premium Economy/Economy): ")
@@ -392,5 +402,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 

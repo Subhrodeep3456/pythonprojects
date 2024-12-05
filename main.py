@@ -4,13 +4,19 @@ import random
 import mysql.connector
 from mysql.connector import Error
 
+SEAT_PRICES = {
+    'Economy': 7000,
+    'Premium Economy': 15000,
+    'Business': 40000
+}
+
 # Connect to MySQL
 def create_connection():
     try:
         connection = mysql.connector.connect(
             host='localhost',  # Change if needed
             user='root',       # MySQL username
-            password='yourpassword',  # MySQL password
+            password='123456',  # MySQL password
             database='ESA'     # Database name
         )
         if connection.is_connected():
@@ -62,27 +68,24 @@ def add_customer_cli():
 
 
 def search_customer_cli():
-    name = input("Enter the name to search: ").strip()
-    found = False
-    if name:
-        try:
-            with open('customer_data.dat', 'rb') as file:
-                while True:
-                    try:
-                        customer = pickle.load(file)
-                        if customer[1].lower() == name.lower():
-                            print(f"Customer Found: {customer}")
-                            found = True
-                            break
-                    except EOFError:
-                        break
-        except FileNotFoundError:
-            print("Error: No customer data found.")
+    # Now searching by customer ID (customer_number)
+    customer_number = input("Enter customer number to search (e.g., ESA1234): ").strip()
 
-        if not found:
-            print("Customer not found.")
+    # Fetch customer data by customer_number
+    customer = fetch_customer_data(customer_number)
+    
+    if customer:
+        print(f"\n--- Customer Details ---")
+        print(f"Customer ID   : {customer['customer_number']}")
+        print(f"Full Name     : {customer['full_name']}")
+        print(f"Age           : {customer['age']}")
+        print(f"Sex           : {customer['sex']}")
+        print(f"Destination   : {customer['destination']}")
+        print(f"Start Place   : {customer['start_place']}")
+        print(f"Seat Class    : {customer['seat_class']}")
+        print(f"Seat Number   : {customer['seat_number']}")
     else:
-        print("Error: Name field is required.")
+        print("Error: Customer not found.")
 
 
 def modify_customer_cli():
@@ -217,6 +220,19 @@ def read_customer_data_cli():
     except FileNotFoundError:
         print("Error: No customer data found.")
 
+def fetch_customer_data(customer_number):
+    connection = create_connection()
+    if connection:
+        cursor = connection.cursor(dictionary=True)
+        query = "SELECT * FROM user WHERE customer_number = %s"
+        cursor.execute(query, (customer_number,))
+        customer = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        return customer
+    return None
+
+
 
 # Billing Section
 def add_billing_cli():
@@ -285,25 +301,56 @@ def add_billing_cli():
         cursor.close()
         connection.close()
 
+def get_seating_price(seat_class):
+    return SEAT_PRICES.get(seat_class, 0)
+
+
+def generate_invoice(customer_number):
+    customer = fetch_customer_data(customer_number)
+    
+    if not customer:
+        print(f"Error: Customer {customer_number} not found.")
+        return
+
+    # Extract customer data
+    full_name = customer['full_name']
+    seat_class = customer['seat_class']  # 'Economy', 'Premium Economy', or 'Business'
+    seat_number = customer['seat_number']
+    amount_paid = get_seating_price(seat_class)  # Automatically use the price based on selected seat class
+    booking_date = customer['booking_date']
+    
+    # Generate and print the invoice
+    print("\n--- Invoice ---")
+    print(f"Customer Name    : {full_name}")
+    print(f"Seat Class       : {seat_class}")
+    print(f"Seat Number      : {seat_number}")
+    print(f"Amount Paid      : {amount_paid}")
+    print(f"Booking Date     : {booking_date}")
+    print("------------------------")
+    print("Thank you for your purchase! Have a pleasant flight with East Sky Airlines.")
+
+
+
 
 # Seating Management Functions
 def display_seating_cli():
     # Define seating sections and total seats per section
     seating_sections = {
         'Business': 10,           # 10 seats in Business
-        'Premium Economy': 15,    # 15 seats in Premium Economy
-        'Economy': 20             # 20 seats in Economy
+        'Premium Economy': 10,    # 10 seats in Premium Economy
+        'Economy': 10             # 10 seats in Economy
     }
 
     seats = {'Business': [], 'Premium Economy': [], 'Economy': []}
     
-    # Randomly generate seating arrangements
+    # Randomly generate seating arrangements (Fixed order now)
     for section, total_seats in seating_sections.items():
         for seat_number in range(1, total_seats + 1):
             status = 'Available' if random.choice([True, False]) else 'Booked'
             seats[section].append({'seat': f"{seat_number}", 'status': status})
     
-    # Display up to 5 available seats per section
+    # Display seats (show up to 5 random available seats per section)
+    print("\n--- Available Seats ---")
     for section, seat_list in seats.items():
         available_seats = [seat['seat'] for seat in seat_list if seat['status'] == 'Available']
         if available_seats:
@@ -319,54 +366,47 @@ def book_seat_cli():
         print("Error: Customer number is required.")
         return
 
-    # Load the seating data from the CSV
-    try:
-        with open('seating_data.csv', 'r', newline='') as file:
-            reader = csv.reader(file)
-            seating_data = [row for row in reader]
-    except FileNotFoundError:
-        print("Seating data file not found.")
+    # Fetch customer data from the database
+    customer = fetch_customer_data(customer_number)
+    if not customer:
+        print(f"Error: Customer {customer_number} not found in the system.")
         return
 
-    # Display available seats with their customer ID (if booked)
-    print("\n--- Available Seats ---")
-    for row in seating_data:
-        if row[2] == 'Available':
-            print(f"Section: {row[0]}, Seat: {row[1]} (Available)")
-        elif row[2] == 'Booked':
-            print(f"Section: {row[0]}, Seat: {row[1]} (Booked by {row[3]})")
+    # Display available seats
+    display_seating_cli()
 
-    # Prompt the user to select a section and seat number
-    section = input("\nEnter section (Business/Premium Economy/Economy): ").strip()
+    # Ask the user for their seat choice
+    seat_class = input("\nEnter seat class (Business/Premium Economy/Economy): ").strip()
     seat_number = input("Enter seat number: ").strip()
 
-    if not section or not seat_number:
-        print("Error: Section and seat number are required.")
+    if not seat_class or not seat_number:
+        print("Error: Both seat class and seat number are required.")
         return
 
-    # Check if the seat is available and then book it
-    seat_found = False
-    updated_seating_data = []
-
-    for row in seating_data:
-        if row[0] == section and row[1] == seat_number:
-            if row[2] == 'Available':
-                # Mark the seat as booked and associate the customer ID with it
-                row[2] = 'Booked'
-                row.append(customer_number)  # Add the customer ID
-                seat_found = True
-            else:
-                print(f"Error: Seat {seat_number} in {section} is already booked by {row[3]}.")
-        updated_seating_data.append(row)
-
-    if seat_found:
-        # Save the updated seating data back to the CSV file
-        with open('seating_data.csv', 'w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerows(updated_seating_data)
-        print(f"Seat {seat_number} in {section} successfully booked for customer {customer_number}.")
+    # Process seat booking
+    connection = create_connection()
+    if connection:
+        cursor = connection.cursor()
+        
+        # Check if the seat is available
+        cursor.execute("SELECT * FROM seating WHERE seat_class = %s AND seat_number = %s", (seat_class, seat_number))
+        row = cursor.fetchone()
+        
+        if row and row['status'] == 'Available':
+            # Book the seat
+            cursor.execute("""
+                UPDATE seating SET status = 'Booked', customer_number = %s
+                WHERE seat_class = %s AND seat_number = %s
+            """, (customer_number, seat_class, seat_number))
+            connection.commit()
+            print(f"Seat {seat_number} in {seat_class} successfully booked for customer {customer_number}.")
+        else:
+            print("Error: Seat is not available.")
+        
+        cursor.close()
+        connection.close()
     else:
-        print("Seat not found or already booked.")
+        print("Error: Could not connect to the database.")
 
 
 def delete_seat_cli():
@@ -438,12 +478,63 @@ def main_menu():
         elif ch == '2':
             seating_management_menu()
         elif ch == '3':
-            add_billing_cli()
+            billing_section()  # Go to the billing section
         elif ch == '4':
             print("Exiting program.")
             break
         else:
             print("Invalid option, please try again.")
+
+def billing_section():
+    print("\n--- Billing ---")
+    
+    # Ask the user for their customer number
+    customer_number = input("Enter your customer number (e.g., ESA1234): ").strip()
+    customer = fetch_customer_data(customer_number)
+    
+    if not customer:
+        print(f"Error: Customer {customer_number} not found in the system.")
+        return
+    
+    # Automatically fill in billing details using the data from the database
+    full_name = customer['full_name']
+    seat_class = customer['seat_class']  # Seat class selected during booking
+    seat_number = customer['seat_number']
+    
+    # Display customer details for confirmation
+    print(f"\nCustomer found: {full_name}")
+    print(f"Seat Class      : {seat_class}")
+    print(f"Seat Number     : {seat_number}")
+    
+    # Fetch the price based on the seat class
+    amount_paid = get_seating_price(seat_class)
+    print(f"Total Amount Due: {amount_paid}")
+    
+    # Confirm the payment
+    confirm_payment = input("\nConfirm payment? (y/n): ").strip().lower()
+    if confirm_payment == 'y':
+        # Process payment (insert the transaction into the database)
+        connection = create_connection()
+        if connection:
+            cursor = connection.cursor()
+            update_query = """
+                UPDATE user
+                SET amount_paid = %s
+                WHERE customer_number = %s
+            """
+            cursor.execute(update_query, (amount_paid, customer_number))
+            connection.commit()
+            cursor.close()
+            connection.close()
+            
+            print("\nPayment processed successfully!")
+            generate_invoice(customer_number)  # Generate and display the invoice
+        else:
+            print("Error: Could not connect to the database.")
+    else:
+        print("Payment canceled.")
+
+
 
 # Customer management menu for CLI
 def customer_management_menu():

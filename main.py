@@ -2,11 +2,7 @@ import pickle
 import csv
 import random
 import mysql.connector
-from mysql.connector import Error 
-
-#Economy - 7000
-#Premium Economy - 15000
-#Business - 40000
+from mysql.connector import Error
 
 # Connect to MySQL
 def create_connection():
@@ -15,7 +11,7 @@ def create_connection():
             host='localhost',  # Change if needed
             user='root',       # MySQL username
             password='yourpassword',  # MySQL password
-            database='airline_management'
+            database='ESA'     # Database name
         )
         if connection.is_connected():
             return connection
@@ -88,6 +84,7 @@ def search_customer_cli():
     else:
         print("Error: Name field is required.")
 
+
 def modify_customer_cli():
     customer_number = input("Enter the customer number to modify: ").strip()
     customers = []
@@ -128,6 +125,7 @@ def modify_customer_cli():
     else:
         print("Customer not found.")
 
+
 def delete_customer_cli():
     customer_number = input("Enter the customer number to delete: ").strip()
     customers = []
@@ -160,6 +158,7 @@ def delete_customer_cli():
     else:
         print("Customer not found.")
 
+
 def read_customer_data_cli():
     try:
         with open('customer_data.dat', 'rb') as file:
@@ -173,13 +172,45 @@ def read_customer_data_cli():
 
         if customer_list:
             print("\n--- Customer Data ---")
+            
+            # Read seating data to cross-check if the customer has a seat booked
+            try:
+                with open('seating_data.csv', 'r') as file:
+                    reader = csv.reader(file)
+                    seating_data = [row for row in reader]
+            except FileNotFoundError:
+                print("Error: Seating data file not found.")
+                seating_data = []
+
+            # Loop through each customer and check if they have a booked seat
             for customer in customer_list:
-                print(f"ID      : {customer[0]}")
-                print(f"Name    : {customer[1]}")
-                print(f"Age     : {customer[2]}")
-                print(f"Sex     : {customer[3]}")
-                print(f"Destination: {customer[4]}")
-                print(f"Start Place: {customer[5]}")
+                customer_number = customer[0]
+                customer_name = customer[1]
+                customer_age = customer[2]
+                customer_sex = customer[3]
+                customer_destination = customer[4]
+                customer_start_place = customer[5]
+
+                # Find if the customer has a seat booked
+                booked_seat = None
+                for row in seating_data:
+                    if len(row) > 3 and row[3] == customer_number and row[2] == 'Booked':
+                        booked_seat = f"Section: {row[0]}, Seat: {row[1]}"
+                        break
+
+                # Display customer info
+                print(f"ID          : {customer_number}")
+                print(f"Name        : {customer_name}")
+                print(f"Age         : {customer_age}")
+                print(f"Sex         : {customer_sex}")
+                print(f"Destination : {customer_destination}")
+                print(f"Start Place : {customer_start_place}")
+
+                if booked_seat:
+                    print(f"Booked Seat : {booked_seat}")
+                else:
+                    print("No seat booked by this customer yet.")
+                
                 print("-" * 30)  # Separator line
         else:
             print("No customer data available.")
@@ -187,60 +218,75 @@ def read_customer_data_cli():
         print("Error: No customer data found.")
 
 
-# Seating Management
-def delete_seat_cli():
-    customer_number = input("Enter your customer number: ").strip()
-    if not customer_number:
-        print("Error: Customer number is required.")
+# Billing Section
+def add_billing_cli():
+    connection = create_connection()
+    if connection is None:
+        print("Error: Could not connect to database.")
         return
 
-    # Load seating data
-    try:
-        with open('seating_data.csv', 'r') as file:
-            reader = csv.reader(file)
-            seating_data = [row for row in reader]
-    except FileNotFoundError:
-        print("Error: Seating data not found.")
+    # Get customer data
+    customer_number = input("Enter customer number (e.g., ESA1234): ").strip()
+    full_name = input("Enter your full name: ").strip()
+    card_number = input("Enter your credit card number: ").strip()
+    cvv = input("Enter your CVV: ").strip()
+    exp_date = input("Enter credit card expiry date (MM/YY): ").strip()
+
+    if not all([customer_number, full_name, card_number, cvv, exp_date]):
+        print("Error: All fields are required.")
         return
 
-    # Display seats booked by the user
-    user_seats = [row for row in seating_data if len(row) > 3 and row[3] == customer_number and row[2] == 'Booked']
-    if not user_seats:
-        print("You have no booked seats.")
-        return
+    # Determine the amount paid (you can modify this logic as per your pricing model)
+    print("\nSelect your seat type:")
+    print("1. Economy - 7000")
+    print("2. Premium Economy - 15000")
+    print("3. Business - 40000")
+    seat_type = input("Enter seat type number: ").strip()
 
-    print("\n--- Your Booked Seats ---")
-    for row in user_seats:
-        print(f"Section: {row[0]}, Seat: {row[1]}")
-
-    # Prompt user for cancellation
-    section = input("\nEnter section to cancel (Business/Premium Economy/Economy): ").strip()
-    seat_number = input("Enter seat number to cancel: ").strip()
-
-    if not section or not seat_number:
-        print("Error: Section and seat number are required.")
-        return
-
-    # Attempt to cancel the booking
-    seat_found = False
-    updated_seating_data = []
-
-    for row in seating_data:
-        if row[0] == section and row[1] == seat_number and len(row) > 3 and row[3] == customer_number:
-            if row[2] == 'Booked':
-                row[2] = 'Available'
-                row.pop()  # Remove customer association
-                seat_found = True
-                print(f"Seat {seat_number} in {section} successfully canceled.")
-        updated_seating_data.append(row)
-
-    if seat_found:
-        with open('seating_data.csv', 'w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerows(updated_seating_data)
+    if seat_type == '1':
+        amount_paid = 7000
+    elif seat_type == '2':
+        amount_paid = 15000
+    elif seat_type == '3':
+        amount_paid = 40000
     else:
-        print("Seat not found or not booked by you.")
+        print("Invalid seat type. Defaulting to Economy.")
+        amount_paid = 7000
 
+    # Insert billing information into the database
+    cursor = connection.cursor()
+    try:
+        query = """
+            INSERT INTO user (customer_number, full_name, card_number, cvv, exp_date, amount_paid)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        cursor.execute(query, (customer_number, full_name, card_number, cvv, exp_date, amount_paid))
+        connection.commit()
+        print("Billing information stored successfully.")
+
+        # Fetch the last inserted record (invoice summary)
+        cursor.execute("SELECT * FROM user ORDER BY booking_date DESC LIMIT 1")
+        invoice = cursor.fetchone()
+
+        # Print the invoice summary
+        print("\n--- Invoice Summary ---")
+        print(f"Customer Number: {invoice[1]}")
+        print(f"Full Name      : {invoice[2]}")
+        print(f"Card Number    : {'*' * (len(invoice[3]) - 4) + invoice[3][-4:]}")
+        print(f"CVV            : {'*' * len(invoice[4])}")
+        print(f"Exp. Date      : {invoice[5]}")
+        print(f"Amount Paid    : {invoice[6]}")
+        print(f"Booking Date   : {invoice[7]}")
+        print("-----------------------")
+    except Error as e:
+        print(f"Error inserting data: {e}")
+        connection.rollback()
+    finally:
+        cursor.close()
+        connection.close()
+
+
+# Seating Management Functions
 def display_seating_cli():
     # Define seating sections and total seats per section
     seating_sections = {
@@ -265,7 +311,6 @@ def display_seating_cli():
             print(f"{section}: {', '.join(random_seats)}")  # Show up to 5 random available seats
         else:
             print(f"{section}: No available seats")
-
 
 
 def book_seat_cli():
@@ -324,14 +369,68 @@ def book_seat_cli():
         print("Seat not found or already booked.")
 
 
+def delete_seat_cli():
+    customer_number = input("Enter your customer number: ").strip()
+    if not customer_number:
+        print("Error: Customer number is required.")
+        return
 
-# Main menu for CLI management
+    # Load seating data
+    try:
+        with open('seating_data.csv', 'r') as file:
+            reader = csv.reader(file)
+            seating_data = [row for row in reader]
+    except FileNotFoundError:
+        print("Error: Seating data not found.")
+        return
+
+    # Display seats booked by the user
+    user_seats = [row for row in seating_data if len(row) > 3 and row[3] == customer_number and row[2] == 'Booked']
+    if not user_seats:
+        print("You have no booked seats.")
+        return
+
+    print("\n--- Your Booked Seats ---")
+    for row in user_seats:
+        print(f"Section: {row[0]}, Seat: {row[1]}")
+
+    # Prompt user for cancellation
+    section = input("\nEnter section to cancel (Business/Premium Economy/Economy): ").strip()
+    seat_number = input("Enter seat number to cancel: ").strip()
+
+    if not section or not seat_number:
+        print("Error: Section and seat number are required.")
+        return
+
+    # Attempt to cancel the booking
+    seat_found = False
+    updated_seating_data = []
+
+    for row in seating_data:
+        if row[0] == section and row[1] == seat_number and len(row) > 3 and row[3] == customer_number:
+            if row[2] == 'Booked':
+                row[2] = 'Available'
+                row.pop()  # Remove customer association
+                seat_found = True
+                print(f"Seat {seat_number} in {section} successfully canceled.")
+        updated_seating_data.append(row)
+
+    if seat_found:
+        with open('seating_data.csv', 'w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerows(updated_seating_data)
+    else:
+        print("Seat not found or not booked by you.")
+
+
+# Main menu with billing option
 def main_menu():
     while True:
         print("\n=== East Sky Airlines Management ===")
         print("1. Customer Management")
         print("2. Seating Management")
-        print("3. Exit")
+        print("3. Billing")
+        print("4. Exit")
         ch = input("Select an option: ").strip()
 
         if ch == '1':
@@ -339,6 +438,8 @@ def main_menu():
         elif ch == '2':
             seating_management_menu()
         elif ch == '3':
+            add_billing_cli()
+        elif ch == '4':
             print("Exiting program.")
             break
         else:

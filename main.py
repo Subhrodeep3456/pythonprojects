@@ -269,44 +269,57 @@ def display_seating_cli():
 
 
 def book_seat_cli():
-    customer_number = input("Enter your customer number: ").strip()
+    customer_number = input("Enter your customer number (e.g., ESA1234): ").strip()
     if not customer_number:
         print("Error: Customer number is required.")
         return
 
-    section = input("Enter section (Business/Premium Economy/Economy): ").strip()
+    # Load the seating data from the CSV
+    try:
+        with open('seating_data.csv', 'r', newline='') as file:
+            reader = csv.reader(file)
+            seating_data = [row for row in reader]
+    except FileNotFoundError:
+        print("Seating data file not found.")
+        return
+
+    # Display available seats with their customer ID (if booked)
+    print("\n--- Available Seats ---")
+    for row in seating_data:
+        if row[2] == 'Available':
+            print(f"Section: {row[0]}, Seat: {row[1]} (Available)")
+        elif row[2] == 'Booked':
+            print(f"Section: {row[0]}, Seat: {row[1]} (Booked by {row[3]})")
+
+    # Prompt the user to select a section and seat number
+    section = input("\nEnter section (Business/Premium Economy/Economy): ").strip()
     seat_number = input("Enter seat number: ").strip()
 
     if not section or not seat_number:
         print("Error: Section and seat number are required.")
         return
 
-    updated_seating_data = []
+    # Check if the seat is available and then book it
     seat_found = False
-
-    try:
-        with open('seating_data.csv', 'r') as file:
-            reader = csv.reader(file)
-            seating_data = [row for row in reader]
-    except FileNotFoundError:
-        print("Error: Seating data not found.")
-        return
+    updated_seating_data = []
 
     for row in seating_data:
         if row[0] == section and row[1] == seat_number:
             if row[2] == 'Available':
+                # Mark the seat as booked and associate the customer ID with it
                 row[2] = 'Booked'
-                row.append(customer_number)  # Associate booking with the customer
+                row.append(customer_number)  # Add the customer ID
                 seat_found = True
             else:
-                print("Error: Seat already booked.")
+                print(f"Error: Seat {seat_number} in {section} is already booked by {row[3]}.")
         updated_seating_data.append(row)
 
     if seat_found:
+        # Save the updated seating data back to the CSV file
         with open('seating_data.csv', 'w', newline='') as file:
             writer = csv.writer(file)
             writer.writerows(updated_seating_data)
-        print("Seat booked successfully.")
+        print(f"Seat {seat_number} in {section} successfully booked for customer {customer_number}.")
     else:
         print("Seat not found or already booked.")
 

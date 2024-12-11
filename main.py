@@ -68,10 +68,9 @@ def add_customer_cli():
 
 
 def search_customer_cli():
-    # Now searching by customer ID (customer_number)
     customer_number = input("Enter customer number to search (e.g., ESA1234): ").strip()
 
-    # Fetch customer data by customer_number
+    # First, try to fetch customer data from the database
     customer = fetch_customer_data(customer_number)
     
     if customer:
@@ -85,7 +84,32 @@ def search_customer_cli():
         print(f"Seat Class    : {customer['seat_class']}")
         print(f"Seat Number   : {customer['seat_number']}")
     else:
-        print("Error: Customer not found.")
+        # If not found in the database, check the binary file
+        customer = search_customer_in_file(customer_number)
+        if customer:
+            print(f"\n--- Customer Details (from file) ---")
+            print(f"Customer ID   : {customer[0]}")
+            print(f"Full Name     : {customer[1]}")
+            print(f"Age           : {customer[2]}")
+            print(f"Sex           : {customer[3]}")
+            print(f"Destination   : {customer[4]}")
+            print(f"Start Place   : {customer[5]}")
+        else:
+            print("Error: Customer not found.")
+
+def search_customer_in_file(customer_number):
+    try:
+        with open('customer_data.dat', 'rb') as file:
+            while True:
+                try:
+                    customer = pickle.load(file)
+                    if customer[0] == customer_number:
+                        return customer
+                except EOFError:
+                    break
+    except FileNotFoundError:
+        print("Error: No customer data found.")
+    return None
 
 
 def modify_customer_cli():
@@ -369,8 +393,11 @@ def book_seat_cli():
     # Fetch customer data from the database
     customer = fetch_customer_data(customer_number)
     if not customer:
-        print(f"Error: Customer {customer_number} not found in the system.")
-        return
+        # If not found in the database, check the binary file
+        customer = search_customer_in_file(customer_number)
+        if not customer:
+            print(f"Error: Customer {customer_number} not found in the system.")
+            return
 
     # Display available seats
     display_seating_cli()
@@ -563,26 +590,127 @@ def customer_management_menu():
         else:
             print("Invalid option, please try again.")
 
-# Seating management menu for CLI
+def display_and_book_seat_cli():
+    # Get customer number
+    customer_number = input("Enter your customer number (e.g., ESA1234): ").strip()
+    if not customer_number:
+        print("Error: Customer number is required.")
+        return
+
+    # Read seating data from CSV
+    seating_data = []
+    try:
+        with open('seating_data.csv', 'r') as file:
+            reader = csv.reader(file)
+            seating_data = [row for row in reader]
+    except FileNotFoundError:
+        print("Error: Seating data file not found.")
+        return
+
+    # Shuffle the seating data (excluding the header)
+    random.shuffle(seating_data[1:])  # Shuffle only the data rows
+
+    # Display available seats
+    print("\n--- Available Seats ---")
+    available_seats = []
+    for row in seating_data[1:]:  # Skip header
+        if len(row) > 3 and row[2] == 'Available':
+            available_seats.append(row)
+
+    if available_seats:
+        for row in available_seats:
+            print(f"Section: {row[0]}, Seat: {row[1]}")
+    else:
+        print("No available seats.")
+
+    # Ask the user for their seat choice
+    seat_class_alias = input("\nEnter seat class (B for Business, PE for Premium Economy, E for Economy): ").strip().upper()
+    seat_number = input("Enter seat number: ").strip()
+
+    # Map aliases to full class names
+    seat_class_map = {
+        'B': 'Business',
+        'PE': 'Premium Economy',
+        'E': 'Economy'
+    }
+
+    seat_class = seat_class_map.get(seat_class_alias)
+    if not seat_class:
+        print("Error: Invalid seat class alias.")
+        return
+
+    if not seat_number:
+        print("Error: Seat number is required.")
+        return
+
+    # Check if the seat is available and book it
+    seat_found = False
+    for row in seating_data[1:]:  # Skip header
+        if row[0] == seat_class and row[1] == seat_number:
+            if row[2] == 'Available':
+                row[2] = 'Booked'  # Update status to 'Booked'
+                row[3] = customer_number  # Assign customer number
+                seat_found = True
+                print(f"Seat {seat_number} in {seat_class} has been successfully booked for {customer_number}.")
+            else:
+                print(f"Error: Seat {seat_number} in {seat_class} is already booked.")
+            break
+
+    if not seat_found:
+        print(f"Error: Seat {seat_number} in {seat_class} not found.")
+
+    # Write updated seating data back to CSV
+    with open('seating_data.csv', 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerows(seating_data)
+
+import csv
+import random
+
+# Function to create seating data
+import csv
+import random
+
+def create_seating_data(filename):
+    sections = ['Business'] * 5 + ['Premium Economy'] * 6 + ['Economy'] * 19
+    seat_labels = [f"{row}{col}" for row in range(1, 31) for col in 'ABCDEF']  # 30 rows with seats A-F
+
+    # Create seating data with random availability
+    seating_data = [['Section', 'Seat Number', 'Status', 'Customer Number']]
+    for section, seat_number in zip(sections, seat_labels):
+        status = random.choice(['Available', 'Booked'])  # Randomly assign status
+        seating_data.append([section, seat_number, status, ''])  # Customer Number is empty initially
+
+    # Shuffle the seating data (excluding the header)
+    random.shuffle(seating_data[1:])  # Shuffle only the data rows
+
+    # Write to CSV
+    with open(filename, 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerows(seating_data)
+
+    print(f"{filename} created successfully with random seating arrangements.")
+
+
+# Create the seating data CSV file
+create_seating_data('seating_data.csv')
+
+# Update the seating management menu to use the new function
 def seating_management_menu():
     while True:
         print("\n--- Seating Management ---")
-        print("1. Display Available Seats")
-        print("2. Book Seat")
-        print("3. Cancel Seat Booking")
-        print("4. Back to Main Menu")
+        print("1. Display and Book Seat")
+        print("2. Cancel Seat Booking")
+        print("3. Back to Main Menu")
         ch = input("Select an option: ").strip()
 
         if ch == '1':
-            display_seating_cli()
+            display_and_book_seat_cli()
         elif ch == '2':
-            book_seat_cli()
-        elif ch == '3':
             delete_seat_cli()
-        elif ch == '4':
+        elif ch == '3':
             break
         else:
             print("Invalid option, please try again.")
-
 if __name__ == "__main__":
     main_menu()

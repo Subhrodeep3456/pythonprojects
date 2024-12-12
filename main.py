@@ -14,10 +14,10 @@ SEAT_PRICES = {
 def create_connection():
     try:
         connection = mysql.connector.connect(
-            host='localhost',  # Change if needed
-            user='root',       # MySQL username
-            password='subhro',  # MySQL password
-            database='ESA'     # Database name
+            host='localhost',
+            user='root',
+            password='123456',
+            database='ESA'
         )
         if connection.is_connected():
             return connection
@@ -32,33 +32,14 @@ def add_customer_cli():
         if customer_number.startswith("ESA") and customer_number[3:].isdigit():
             break
         print("Error: Customer number must start with 'ESA' followed by numbers.")
-
+    
     fn = input("Enter full name: ").strip()
-    if not fn:
-        print("Operation canceled.")
-        return
-
     age = input("Enter age: ").strip()
-    if not age:
-        print("Operation canceled.")
-        return
-
     sex = input("Enter sex (M/F): ").strip()
-    if not sex:
-        print("Operation canceled.")
-        return
-
     destination = input("Enter destination: ").strip()
-    if not destination:
-        print("Operation canceled.")
-        return
-
     start_place = input("Enter start place: ").strip()
-    if not start_place:
-        print("Operation canceled.")
-        return
 
-    if customer_number and fn and age and sex and destination and start_place:
+    if all([customer_number, fn, age, sex, destination, start_place]):
         customer = [customer_number, fn, age, sex, destination, start_place]
         with open('customer_data.dat', 'ab') as file:
             pickle.dump(customer, file)
@@ -69,31 +50,30 @@ def add_customer_cli():
 
 def search_customer_cli():
     customer_number = input("Enter customer number to search (e.g., ESA1234): ").strip()
-
+    
     # First, try to fetch customer data from the database
     customer = fetch_customer_data(customer_number)
     
     if customer:
         print(f"\n--- Customer Details ---")
-        print(f"Customer ID   : {customer['customer_number']}")
-        print(f"Full Name     : {customer['full_name']}")
-        print(f"Age           : {customer['age']}")
-        print(f"Sex           : {customer['sex']}")
-        print(f"Destination   : {customer['destination']}")
-        print(f"Start Place   : {customer['start_place']}")
-        print(f"Seat Class    : {customer['seat_class']}")
-        print(f"Seat Number   : {customer['seat_number']}")
+        print(f"Customer ID : {customer['customer_number']}")
+        print(f"Full Name : {customer['full_name']}")
+        print(f"Age : {customer['age']}")
+        print(f"Sex : {customer['sex']}")
+        print(f"Destination : {customer['destination']}")
+        print(f"Start Place : {customer['start_place']}")
     else:
         # If not found in the database, check the binary file
         customer = search_customer_in_file(customer_number)
+        
         if customer:
             print(f"\n--- Customer Details (from file) ---")
-            print(f"Customer ID   : {customer[0]}")
-            print(f"Full Name     : {customer[1]}")
-            print(f"Age           : {customer[2]}")
-            print(f"Sex           : {customer[3]}")
-            print(f"Destination   : {customer[4]}")
-            print(f"Start Place   : {customer[5]}")
+            print(f"Customer ID : {customer[0]}")
+            print(f"Full Name : {customer[1]}")
+            print(f"Age : {customer[2]}")
+            print(f"Sex : {customer[3]}")
+            print(f"Destination : {customer[4]}")
+            print(f"Start Place : {customer[5]}")
         else:
             print("Error: Customer not found.")
 
@@ -109,8 +89,8 @@ def search_customer_in_file(customer_number):
                     break
     except FileNotFoundError:
         print("Error: No customer data found.")
+    
     return None
-
 
 def modify_customer_cli():
     customer_number = input("Enter the customer number to modify: ").strip()
@@ -151,6 +131,7 @@ def modify_customer_cli():
         print("Customer details updated successfully.")
     else:
         print("Customer not found.")
+    pass
 
 
 def delete_customer_cli():
@@ -257,7 +238,6 @@ def fetch_customer_data(customer_number):
     return None
 
 
-
 # Billing Section
 def add_billing_cli():
     connection = create_connection()
@@ -335,23 +315,18 @@ def generate_invoice(customer_number):
     if not customer:
         print(f"Error: Customer {customer_number} not found.")
         return
-
-    # Extract customer data
-    full_name = customer['full_name']
-    seat_class = customer['seat_class']  # 'Economy', 'Premium Economy', or 'Business'
-    seat_number = customer['seat_number']
-    amount_paid = get_seating_price(seat_class)  # Automatically use the price based on selected seat class
-    booking_date = customer['booking_date']
     
-    # Generate and print the invoice
+    full_name = customer['full_name']
+    
+    # Generate and display invoice summary here
     print("\n--- Invoice ---")
-    print(f"Customer Name    : {full_name}")
-    print(f"Seat Class       : {seat_class}")
-    print(f"Seat Number      : {seat_number}")
-    print(f"Amount Paid      : {amount_paid}")
-    print(f"Booking Date     : {booking_date}")
+    print(f"Customer Name : {full_name}")
+    
+    # Assuming you have stored amount_paid in your database
+    amount_paid = get_seating_price('Economy')  # Adjust based on actual payment logic
+    print(f"Amount Paid : {amount_paid}")
+    
     print("------------------------")
-    print("Thank you for your purchase! Have a pleasant flight with East Sky Airlines.")
 
 
 
@@ -498,97 +473,118 @@ def main_menu():
         print("2. Seating Management")
         print("3. Billing")
         print("4. Exit")
+        
         ch = input("Select an option: ").strip()
-
+        
         if ch == '1':
             customer_management_menu()
         elif ch == '2':
-            seating_management_menu()
+            seating_management_menu()  # Ensure this function is defined elsewhere
         elif ch == '3':
-            billing_section()  # Go to the billing section
+            billing_section()  # Ensure this function is defined elsewhere
         elif ch == '4':
             print("Exiting program.")
             break
         else:
             print("Invalid option, please try again.")
 
-def billing_section():
-    print("\n--- Billing ---")
-    
-    # Ask the user for their customer number
-    customer_number = input("Enter your customer number (e.g., ESA1234): ").strip()
+def generate_invoice(customer_number):
+    # Fetching invoice details from the database (or can be adjusted based on requirements)
     customer = fetch_customer_data(customer_number)
     
+    if not customer:
+        print(f"Error: Customer {customer_number} not found.")
+        return
+    
+    full_name = customer['full_name']
+    
+    # Generate and display invoice summary here
+    print("\n--- Invoice ---")
+    print(f"Customer Name : {full_name}")
+    print(f"Amount Paid : {get_seating_price('Economy')}")  # Adjust based on actual payment logic
+    print("------------------------")
+
+def customer_management_menu():
+    while True:
+        print("\n--- Customer Management Menu ---")
+        print("1. Add Customer")
+        print("2. Search Customer")
+        print("3. Back to Main Menu")
+
+        choice = input("Select an option: ").strip()
+
+        if choice == '1':
+            add_customer_cli()
+        elif choice == '2':
+            search_customer_cli()
+        elif choice == '3':
+            break  # Go back to main menu
+        else:
+            print("Invalid option, please try again.")
+
+def billing_section():
+    print("\n--- Billing ---")
+    # Ask the user for their customer number
+    customer_number = input("Enter your customer number (e.g., ESA1234): ").strip()
+    
+    # Fetch customer data from the database
+    customer = fetch_customer_data(customer_number)
     if not customer:
         print(f"Error: Customer {customer_number} not found in the system.")
         return
     
     # Automatically fill in billing details using the data from the database
     full_name = customer['full_name']
-    seat_class = customer['seat_class']  # Seat class selected during booking
-    seat_number = customer['seat_number']
+    seat_class = customer['seat_class']
     
-    # Display customer details for confirmation
     print(f"\nCustomer found: {full_name}")
-    print(f"Seat Class      : {seat_class}")
-    print(f"Seat Number     : {seat_number}")
+    print(f"Seat Class : {seat_class}")
     
-    # Fetch the price based on the seat class
-    amount_paid = get_seating_price(seat_class)
-    print(f"Total Amount Due: {amount_paid}")
+    # Display seat price
+    amount_due = get_seating_price(seat_class)
+    print(f"Total Amount Due: {amount_due}")
     
-    # Confirm the payment
+    # Prompt for credit card details
+    card_number = input("Enter your credit card number: ").strip()
+    cvv = input("Enter your CVV: ").strip()
+    exp_date = input("Enter credit card expiry date (MM/YY): ").strip()
+    
+    # Mask sensitive information for display
+    masked_card_number = '*' * (len(card_number) - 4) + card_number[-4:]
+    masked_cvv = '*' * len(cvv)
+    
+    # Confirm payment
     confirm_payment = input("\nConfirm payment? (y/n): ").strip().lower()
+    
     if confirm_payment == 'y':
-        # Process payment (insert the transaction into the database)
         connection = create_connection()
         if connection:
             cursor = connection.cursor()
-            update_query = """
-                UPDATE user
-                SET amount_paid = %s
-                WHERE customer_number = %s
-            """
-            cursor.execute(update_query, (amount_paid, customer_number))
-            connection.commit()
-            cursor.close()
-            connection.close()
-            
-            print("\nPayment processed successfully!")
-            generate_invoice(customer_number)  # Generate and display the invoice
+            try:
+                # Insert billing information into the database
+                query = """ 
+                INSERT INTO billing (customer_number, full_name, card_number, cvv, exp_date, amount_paid) 
+                VALUES (%s, %s, %s, %s, %s, %s) 
+                """
+                cursor.execute(query, (customer_number, full_name, masked_card_number, masked_cvv, exp_date, amount_due))
+                connection.commit()
+                
+                print("\nPayment processed successfully!")
+                
+                # Generate and display invoice
+                generate_invoice(customer_number)
+                
+            except Error as e:
+                print(f"Error inserting data: {e}")
+                connection.rollback()
+            finally:
+                cursor.close()
+                connection.close()
         else:
             print("Error: Could not connect to the database.")
     else:
         print("Payment canceled.")
 
-
-
-# Customer management menu for CLI
-def customer_management_menu():
-    while True:
-        print("\n--- Customer Management ---")
-        print("1. Add Customer")
-        print("2. Search Customer")
-        print("3. Modify Customer")
-        print("4. Delete Customer")
-        print("5. Read Customer Data")
-        print("6. Back to Main Menu")
-        ch = input("Select an option: ").strip()
-
-        if ch == '1':
-            add_customer_cli()
-        elif ch == '2':
-            search_customer_cli()
-        elif ch == '3':
-            modify_customer_cli()
-        elif ch == '4':
-            delete_customer_cli()
-        elif ch == '5':
-            read_customer_data_cli()
-        elif ch == '6':
-            break
-        else:
-            print("Invalid option, please try again.")
 
 def display_and_book_seat_cli():
     # Get customer number
@@ -714,3 +710,7 @@ def seating_management_menu():
             print("Invalid option, please try again.")
 if __name__ == "__main__":
     main_menu()
+
+if __name__ == "__main__":
+    while True:
+        billing_section()

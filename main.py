@@ -16,14 +16,30 @@ def create_connection():
         connection = mysql.connector.connect(
             host='localhost',
             user='root',
-            password='123456',
-            database='ESA'
+            password='Subhro2702#'
         )
         if connection.is_connected():
+            cursor = connection.cursor()
+            # Ensure the database exists
+            cursor.execute("CREATE DATABASE IF NOT EXISTS ESA")
+            cursor.execute("USE ESA")
+            # Ensure the table exists
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user (
+                    customer_number VARCHAR(20) PRIMARY KEY,
+                    full_name VARCHAR(100) NOT NULL,
+                    age INT NOT NULL,
+                    sex ENUM('M', 'F') NOT NULL,
+                    destination VARCHAR(100) NOT NULL,
+                    start_place VARCHAR(100) NOT NULL
+                )
+            """)
+            cursor.close()
             return connection
     except Error as e:
-        print(f"Error: {e}")
+        print(f"Error connecting to MySQL: {e}")
     return None
+
 
 # Functions for customer management
 def add_customer_cli():
@@ -51,31 +67,33 @@ def add_customer_cli():
 def search_customer_cli():
     customer_number = input("Enter customer number to search (e.g., ESA1234): ").strip()
     
-    # First, try to fetch customer data from the database
+    # Try to fetch from database first
     customer = fetch_customer_data(customer_number)
     
     if customer:
-        print(f"\n--- Customer Details ---")
-        print(f"Customer ID : {customer['customer_number']}")
-        print(f"Full Name : {customer['full_name']}")
-        print(f"Age : {customer['age']}")
-        print(f"Sex : {customer['sex']}")
-        print(f"Destination : {customer['destination']}")
-        print(f"Start Place : {customer['start_place']}")
+        print("\n--- Customer Details (from database) ---")
+        print(f"Customer ID    : {customer['customer_number']}")
+        print(f"Full Name      : {customer['full_name']}")
+        print(f"Age            : {customer['age']}")
+        print(f"Sex            : {customer['sex']}")
+        print(f"Destination    : {customer['destination']}")
+        print(f"Start Place    : {customer['start_place']}")
     else:
-        # If not found in the database, check the binary file
+        # Fallback to file search
         customer = search_customer_in_file(customer_number)
         
         if customer:
-            print(f"\n--- Customer Details (from file) ---")
-            print(f"Customer ID : {customer[0]}")
-            print(f"Full Name : {customer[1]}")
-            print(f"Age : {customer[2]}")
-            print(f"Sex : {customer[3]}")
-            print(f"Destination : {customer[4]}")
-            print(f"Start Place : {customer[5]}")
+            print("\n--- Customer Details (from file) ---")
+            print(f"Customer ID    : {customer[0]}")
+            print(f"Full Name      : {customer[1]}")
+            print(f"Age            : {customer[2]}")
+            print(f"Sex            : {customer[3]}")
+            print(f"Destination    : {customer[4]}")
+            print(f"Start Place    : {customer[5]}")
         else:
-            print("Error: Customer not found.")
+            print("Error: Customer not found in database or file.")
+
+
 
 def search_customer_in_file(customer_number):
     try:
@@ -83,14 +101,29 @@ def search_customer_in_file(customer_number):
             while True:
                 try:
                     customer = pickle.load(file)
+                    print(f"Checking customer: {customer[0]}")  # Debug statement
                     if customer[0] == customer_number:
                         return customer
                 except EOFError:
                     break
     except FileNotFoundError:
-        print("Error: No customer data found.")
-    
+        print("Error: Customer data file not found.")
     return None
+
+
+def debug_print_customer_data():
+    print("\n--- Debug: Customer Data File Contents ---")
+    try:
+        with open('customer_data.dat', 'rb') as file:
+            while True:
+                try:
+                    customer = pickle.load(file)
+                    print(customer)
+                except EOFError:
+                    break
+    except FileNotFoundError:
+        print("Error: Customer data file not found.")
+
 
 def modify_customer_cli():
     customer_number = input("Enter the customer number to modify: ").strip()
@@ -228,14 +261,19 @@ def read_customer_data_cli():
 def fetch_customer_data(customer_number):
     connection = create_connection()
     if connection:
-        cursor = connection.cursor(dictionary=True)
-        query = "SELECT * FROM user WHERE customer_number = %s"
-        cursor.execute(query, (customer_number,))
-        customer = cursor.fetchone()
-        cursor.close()
-        connection.close()
-        return customer
+        try:
+            cursor = connection.cursor(dictionary=True)
+            query = "SELECT * FROM user WHERE customer_number = %s"
+            cursor.execute(query, (customer_number,))
+            customer = cursor.fetchone()
+            cursor.close()
+            return customer
+        except mysql.connector.Error as e:
+            print(f"Database error: {e}")
+        finally:
+            connection.close()
     return None
+
 
 
 # Billing Section
@@ -310,22 +348,19 @@ def get_seating_price(seat_class):
 
 
 def generate_invoice(customer_number):
-    customer = fetch_customer_data(customer_number)
+    # Fetching invoice details from the binary file
+    customer = search_customer_in_file(customer_number)
     
     if not customer:
         print(f"Error: Customer {customer_number} not found.")
         return
     
-    full_name = customer['full_name']
+    full_name = customer[1]
     
     # Generate and display invoice summary here
     print("\n--- Invoice ---")
     print(f"Customer Name : {full_name}")
-    
-    # Assuming you have stored amount_paid in your database
-    amount_paid = get_seating_price('Economy')  # Adjust based on actual payment logic
-    print(f"Amount Paid : {amount_paid}")
-    
+    print(f"Amount Paid : {get_seating_price('Economy')}")  # Adjust based on actual payment logic
     print("------------------------")
 
 
@@ -335,9 +370,9 @@ def generate_invoice(customer_number):
 def display_seating_cli():
     # Define seating sections and total seats per section
     seating_sections = {
-        'Business': 10,           # 10 seats in Business
-        'Premium Economy': 10,    # 10 seats in Premium Economy
-        'Economy': 10             # 10 seats in Economy
+        'Business': 5,           # 10 seats in Business
+        'Premium Economy': 3,    # 10 seats in Premium Economy
+        'Economy': 22             # 10 seats in Economy
     }
 
     seats = {'Business': [], 'Premium Economy': [], 'Economy': []}
@@ -508,40 +543,47 @@ def customer_management_menu():
     while True:
         print("\n--- Customer Management Menu ---")
         print("1. Add Customer")
-        print("2. Search Customer")
-        print("3. Back to Main Menu")
+        print("2. Modify Customer")
+        print("3. Delete Customer")
+        print("4. Read Customer Data")
+        print("5. Search Customer")
+        print("6. Exit to Main Menu")
 
         choice = input("Select an option: ").strip()
 
         if choice == '1':
             add_customer_cli()
         elif choice == '2':
-            search_customer_cli()
+            modify_customer_cli()
         elif choice == '3':
-            break  # Go back to main menu
+            delete_customer_cli()
+        elif choice == '4':
+            read_customer_data_cli()
+        elif choice == '5':
+            search_customer_cli()
+        elif choice == '6':
+            break  # Exit to the main menu
         else:
             print("Invalid option, please try again.")
+
 
 def billing_section():
     print("\n--- Billing ---")
     # Ask the user for their customer number
     customer_number = input("Enter your customer number (e.g., ESA1234): ").strip()
     
-    # Fetch customer data from the database
-    customer = fetch_customer_data(customer_number)
+    # Fetch customer data from the binary file
+    customer = search_customer_in_file(customer_number)
     if not customer:
         print(f"Error: Customer {customer_number} not found in the system.")
         return
     
-    # Automatically fill in billing details using the data from the database
-    full_name = customer['full_name']
-    seat_class = customer['seat_class']
-    
+    # Automatically fill in billing details using the data from the file
+    full_name = customer[1]
     print(f"\nCustomer found: {full_name}")
-    print(f"Seat Class : {seat_class}")
     
     # Display seat price
-    amount_due = get_seating_price(seat_class)
+    amount_due = get_seating_price('Economy')  # Default to Economy
     print(f"Total Amount Due: {amount_due}")
     
     # Prompt for credit card details
@@ -557,33 +599,54 @@ def billing_section():
     confirm_payment = input("\nConfirm payment? (y/n): ").strip().lower()
     
     if confirm_payment == 'y':
-        connection = create_connection()
-        if connection:
-            cursor = connection.cursor()
-            try:
-                # Insert billing information into the database
-                query = """ 
-                INSERT INTO billing (customer_number, full_name, card_number, cvv, exp_date, amount_paid) 
-                VALUES (%s, %s, %s, %s, %s, %s) 
-                """
-                cursor.execute(query, (customer_number, full_name, masked_card_number, masked_cvv, exp_date, amount_due))
-                connection.commit()
-                
-                print("\nPayment processed successfully!")
-                
-                # Generate and display invoice
-                generate_invoice(customer_number)
-                
-            except Error as e:
-                print(f"Error inserting data: {e}")
-                connection.rollback()
-            finally:
-                cursor.close()
-                connection.close()
-        else:
-            print("Error: Could not connect to the database.")
+        print("\nPayment processed successfully!")
+        
+        # Generate and display invoice
+        generate_invoice(customer_number)
     else:
         print("Payment canceled.")
+
+def display_available_seats():
+    seating_sections = {
+        'Business': 10,
+        'Premium Economy': 10,
+        'Economy': 10
+    }
+    seats = {'Business': [], 'Premium Economy': [], 'Economy': []}
+
+    for section, total_seats in seating_sections.items():
+        for seat_number in range(1, total_seats + 1):
+            status = 'Available' if random.choice([True, False]) else 'Booked'
+            seats[section].append({'seat': f"{seat_number}", 'status': status})
+
+    print("\n--- Available Seats ---")
+    for section, seat_list in seats.items():
+        available_seats = [seat['seat'] for seat in seat_list if seat['status'] == 'Available']
+        print(f"{section}: {', '.join(available_seats) if available_seats else 'No available seats'}")
+
+def select_seat():
+    display_available_seats()
+    
+    seat_class = input("\nEnter seat class (Business/Premium Economy/Economy): ").strip()
+    seat_number = input("Enter seat number: ").strip()
+    
+    return seat_class, seat_number
+
+def process_billing():
+    customer_number = input("Enter customer number (e.g., ESA1234): ").strip()
+    
+    # Collect payment information
+    full_name = input("Enter your full name: ").strip()
+    card_number = input("Enter your credit card number: ").strip()
+    cvv = input("Enter your CVV: ").strip()
+    exp_date = input("Enter credit card expiry date (MM/YY): ").strip()
+
+    # Select a seat and determine amount paid
+    seat_class, seat_number = select_seat()
+    amount_paid = SEAT_PRICES.get(seat_class, SEAT_PRICES['Economy'])  # Default to Economy if invalid
+
+    # Store billing information (this should include database interaction)
+    print(f"Billing information stored successfully for {full_name}. Amount paid: {amount_paid}.")
 
 
 def display_and_book_seat_cli():

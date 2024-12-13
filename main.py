@@ -4,6 +4,7 @@ import random
 import mysql.connector
 from mysql.connector import Error
 from datetime import datetime
+import os
 
 SEAT_PRICES = {
     'Economy': 7000,
@@ -17,14 +18,15 @@ def create_connection():
         connection = mysql.connector.connect(
             host='localhost',
             user='root',
-            password='samitsql'
+            password='subhro'
         )
         if connection.is_connected():
             cursor = connection.cursor()
             # Ensure the database exists
             cursor.execute("CREATE DATABASE IF NOT EXISTS ESA")
             cursor.execute("USE ESA")
-            # Ensure the table exists
+
+            # Create user table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS user (
                     customer_number VARCHAR(20) PRIMARY KEY,
@@ -35,12 +37,24 @@ def create_connection():
                     start_place VARCHAR(100) NOT NULL
                 )
             """)
+
+            # Create billing table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS billing (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    customer_number VARCHAR(20),
+                    card_number VARCHAR(20),
+                    cvv VARCHAR(3),
+                    exp_date VARCHAR(5),
+                    amount_paid DECIMAL(10, 2),
+                    FOREIGN KEY (customer_number) REFERENCES user(customer_number)
+                )
+            """)
             cursor.close()
             return connection
     except Error as e:
         print(f"Error connecting to MySQL: {e}")
     return None
-
 
 # Functions for customer management
 def add_customer_cli():
@@ -172,11 +186,12 @@ def delete_customer_cli():
     customer_number = input("Enter the customer number to delete: ").strip()
     customers = []
     found = False
-
+    
     if not customer_number:
         print("Error: Customer number field is required.")
         return
 
+    # Load existing customers from the .dat file
     try:
         with open('customer_data.dat', 'rb') as file:
             while True:
@@ -192,13 +207,34 @@ def delete_customer_cli():
         print("Error: No customer data found.")
         return
 
+    # If customer was found in the .dat file, delete from database as well
     if found:
+        # Delete from MySQL database
+        connection = create_connection()
+        if connection:
+            cursor = connection.cursor()
+            try:
+                # Delete from billing table first due to foreign key constraint
+                cursor.execute("DELETE FROM billing WHERE customer_number = %s", (customer_number,))
+                cursor.execute("DELETE FROM user WHERE customer_number = %s", (customer_number,))
+                connection.commit()
+                print("Customer record deleted from database successfully.")
+            except Error as e:
+                print(f"Error deleting from database: {e}")
+                connection.rollback()
+            finally:
+                cursor.close()
+                connection.close()
+
+        # Now write back the remaining customers to the .dat file
         with open('customer_data.dat', 'wb') as file:
             for customer in customers:
                 pickle.dump(customer, file)
-        print("Customer record deleted successfully.")
+
+        print("Customer record deleted successfully from .dat file.")
     else:
         print("Customer not found.")
+
 
 
 def read_customer_data_cli():
@@ -286,16 +322,15 @@ def add_billing_cli():
 
     # Get customer data
     customer_number = input("Enter customer number (e.g., ESA1234): ").strip()
-    full_name = input("Enter your full name: ").strip()
     card_number = input("Enter your credit card number: ").strip()
     cvv = input("Enter your CVV: ").strip()
     exp_date = input("Enter credit card expiry date (MM/YY): ").strip()
 
-    if not all([customer_number, full_name, card_number, cvv, exp_date]):
+    if not all([customer_number, card_number, cvv, exp_date]):
         print("Error: All fields are required.")
         return
 
-    # Determine the amount paid (you can modify this logic as per your pricing model)
+    # Determine the amount paid
     print("\nSelect your seat type:")
     print("1. Economy - 7000")
     print("2. Premium Economy - 15000")
@@ -312,64 +347,67 @@ def add_billing_cli():
         print("Invalid seat type. Defaulting to Economy.")
         amount_paid = 7000
 
-    # Insert billing information into the database
+    # Insert billing information into the billing table (without full_name)
     cursor = connection.cursor()
     try:
         query = """
-            INSERT INTO user (customer_number, full_name, card_number, cvv, exp_date, amount_paid)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO billing (customer_number, card_number, cvv, exp_date, amount_paid)
+            VALUES (%s, %s, %s, %s, %s)
         """
-        cursor.execute(query, (customer_number, full_name, card_number, cvv, exp_date, amount_paid))
+        cursor.execute(query, (customer_number, card_number, cvv, exp_date, amount_paid))
         connection.commit()
         print("Billing information stored successfully.")
-
-        # Fetch the last inserted record (invoice summary)
-        cursor.execute("SELECT * FROM user ORDER BY booking_date DESC LIMIT 1")
-        invoice = cursor.fetchone()
-
-        # Print the invoice summary
-        print("\n--- Invoice Summary ---")
-        print(f"Customer Number: {invoice[1]}")
-        print(f"Full Name      : {invoice[2]}")
-        print(f"Card Number    : {'*' * (len(invoice[3]) - 4) + invoice[3][-4:]}")
-        print(f"CVV            : {'*' * len(invoice[4])}")
-        print(f"Exp. Date      : {invoice[5]}")
-        print(f"Amount Paid    : {invoice[6]}")
-        print(f"Booking Date   : {invoice[7]}")
-        print("-----------------------")
     except Error as e:
-        print(f"Error inserting data: {e}")
+        print(f"Error inserting billing data: {e}")
         connection.rollback()
     finally:
         cursor.close()
         connection.close()
+
+
+
 
 def get_seating_price(seat_class):
     return SEAT_PRICES.get(seat_class, 0)
 
 
 def generate_invoice(customer_number):
-   
-    print("\n--- Billing ---")
-    customer_number = input("Enter your customer number (e.g., ESA1234): ").strip()
-
-    # Fetch customer data from the database
-    customer = fetch_customer_data(customer_number) 
-
-    if not customer:
-        print(f"Error: Customer {customer_number} not found in the database.")
+    connection = create_connection()
+    if connection is None:
+        print("Error: Could not connect to database.")
         return
 
-    full_name = customer['full_name'] 
-    print(f"\nCustomer found: {full_name}")
+    cursor = connection.cursor(dictionary=True)
+    try:
+        query = """
+            SELECT u.full_name, b.card_number, b.cvv, b.exp_date, b.amount_paid
+            FROM user u
+            JOIN billing b ON u.customer_number = b.customer_number
+            WHERE u.customer_number = %s
+        """
+        cursor.execute(query, (customer_number,))
+        invoice = cursor.fetchone()
+        
+        if invoice:
+            # Mask sensitive information
+            masked_card_number = "*" * (len(invoice['card_number']) - 4) + invoice['card_number'][-4:]
+            masked_cvv = "*" * len(invoice['cvv'])
 
- 
-    
-    # Generate and display invoice summary here
-    print("\n--- Invoice ---")
-    print(f"Customer Name : {full_name}")
-    print(f"Amount Paid : {get_seating_price('Economy')}")  # Adjust based on actual payment logic
-    print("------------------------")
+            print("\n--- Invoice ---")
+            print(f"Customer Number: {customer_number}")
+            print(f"Full Name      : {invoice['full_name']}")
+            print(f"Card Number    : {masked_card_number}")
+            print(f"CVV            : {masked_cvv}")
+            print(f"Exp. Date      : {invoice['exp_date']}")
+            print(f"Amount Paid    : {invoice['amount_paid']}")
+            print("------------------------")
+        else:
+            print(f"No billing information found for customer {customer_number}.")
+    except Error as e:
+        print(f"Error fetching invoice: {e}")
+    finally:
+        cursor.close()
+        connection.close()
 
 
 
@@ -609,7 +647,7 @@ def billing_section():
     # Validate expiry date
     try:
         exp_month, exp_year = map(int, exp_date_str.split('/'))
-        exp_date = datetime(year=2000 + exp_year, month=exp_month, day=1) 
+        exp_date = datetime(year=2000 + exp_year, month=exp_month, day=1)
         current_date = datetime.now()
 
         if exp_date < current_date:
@@ -629,10 +667,74 @@ def billing_section():
     if confirm_payment == 'y':
         print("\nPayment processed successfully!")
 
+        # Store billing information in the database
+        connection = create_connection()
+        if connection:
+            cursor = connection.cursor()
+            try:
+                query = """
+                    INSERT INTO billing (customer_number, card_number, cvv, exp_date, amount_paid)
+                    VALUES (%s, %s, %s, %s, %s)
+                """
+                cursor.execute(query, (customer_number, card_number, cvv, exp_date_str, amount_due))
+                connection.commit()
+                print("Billing information stored in the database.")
+            except Error as e:
+                print(f"Error inserting billing data: {e}")
+                connection.rollback()
+            finally:
+                cursor.close()
+                connection.close()
+
         # Generate and display invoice
         generate_invoice(customer_number, full_name, masked_card_number, masked_cvv, exp_date_str, seat_class, seat_number, amount_due)
     else:
         print("Payment canceled.")
+
+def load_customers_from_file(filename):
+    customers = []
+    with open(filename, 'rb') as file:
+        while True:
+            try:
+                customer = pickle.load(file)
+                customers.append(customer)
+            except EOFError:
+                break
+    return customers
+
+def insert_customer_into_db(customer):
+    connection = create_connection()
+    cursor = connection.cursor()
+
+    customer_number, full_name, age, sex, destination, start_place = customer
+
+    try:
+        cursor.execute("""
+            INSERT INTO user (customer_number, full_name, age, sex, destination, start_place)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE 
+                full_name = VALUES(full_name), 
+                age = VALUES(age), 
+                sex = VALUES(sex), 
+                destination = VALUES(destination), 
+                start_place = VALUES(start_place)
+        """, (customer_number, full_name, age, sex, destination, start_place))
+
+        connection.commit()
+        print(f"Customer {customer_number} inserted/updated successfully.")
+
+    except mysql.connector.Error as e:
+        print(f"Error inserting customer: {e}")
+        connection.rollback()
+
+    finally:
+        cursor.close()
+        connection.close()
+
+if __name__ == "__main__":
+    customers = load_customers_from_file('customer_data.dat')
+    for customer in customers:
+        insert_customer_into_db(customer)
 
 def display_available_seats():
     seating_sections = {
@@ -813,7 +915,13 @@ import random
 import csv
 import random
 
+
+
 def create_seating_data(filename):
+    if os.path.exists(filename):
+        print(f"{filename} already exists. Skipping creation.")
+        return
+    
     sections = ['Business'] * 5 + ['Premium Economy'] * 6 + ['Economy'] * 19
     seat_labels = [f"{row}{col}" for row in range(1, 31) for col in 'ABCDEF']  # 30 rows with seats A-F
 
@@ -823,15 +931,13 @@ def create_seating_data(filename):
         status = random.choice(['Available', 'Booked'])  # Randomly assign status
         seating_data.append([section, seat_number, status, ''])  # Customer Number is empty initially
 
-    # Shuffle the seating data (excluding the header)
-    random.shuffle(seating_data[1:])  # Shuffle only the data rows
-
     # Write to CSV
     with open(filename, 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerows(seating_data)
 
     print(f"{filename} created successfully with random seating arrangements.")
+
 
 
 # Create the seating data CSV file

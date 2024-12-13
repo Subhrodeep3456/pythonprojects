@@ -3,6 +3,7 @@ import csv
 import random
 import mysql.connector
 from mysql.connector import Error
+from datetime import datetime
 
 SEAT_PRICES = {
     'Economy': 7000,
@@ -16,7 +17,7 @@ def create_connection():
         connection = mysql.connector.connect(
             host='localhost',
             user='root',
-            password='Subhro2702#'
+            password='samitsql'
         )
         if connection.is_connected():
             cursor = connection.cursor()
@@ -348,14 +349,21 @@ def get_seating_price(seat_class):
 
 
 def generate_invoice(customer_number):
-    # Fetching invoice details from the binary file
-    customer = search_customer_in_file(customer_number)
-    
+   
+    print("\n--- Billing ---")
+    customer_number = input("Enter your customer number (e.g., ESA1234): ").strip()
+
+    # Fetch customer data from the database
+    customer = fetch_customer_data(customer_number) 
+
     if not customer:
-        print(f"Error: Customer {customer_number} not found.")
+        print(f"Error: Customer {customer_number} not found in the database.")
         return
-    
-    full_name = customer[1]
+
+    full_name = customer['full_name'] 
+    print(f"\nCustomer found: {full_name}")
+
+ 
     
     # Generate and display invoice summary here
     print("\n--- Invoice ---")
@@ -569,40 +577,60 @@ def customer_management_menu():
 
 def billing_section():
     print("\n--- Billing ---")
-    # Ask the user for their customer number
     customer_number = input("Enter your customer number (e.g., ESA1234): ").strip()
-    
+
     # Fetch customer data from the binary file
     customer = search_customer_in_file(customer_number)
     if not customer:
         print(f"Error: Customer {customer_number} not found in the system.")
         return
-    
-    # Automatically fill in billing details using the data from the file
+
     full_name = customer[1]
     print(f"\nCustomer found: {full_name}")
-    
-    # Display seat price
-    amount_due = get_seating_price('Economy')  # Default to Economy
+
+    # Retrieve seat information
+    seat_class, seat_number = check_booked_seat(customer_number)
+
+    if not seat_class or not seat_number:
+        print("No seat booked for this customer. Please book a seat first.")
+        return
+
+    # Calculate amount due
+    amount_due = SEAT_PRICES.get(seat_class, 0)
+    print(f"Seat Class: {seat_class}")
+    print(f"Seat Number: {seat_number}")
     print(f"Total Amount Due: {amount_due}")
-    
-    # Prompt for credit card details
+
+    # Collect payment information
     card_number = input("Enter your credit card number: ").strip()
     cvv = input("Enter your CVV: ").strip()
-    exp_date = input("Enter credit card expiry date (MM/YY): ").strip()
-    
-    # Mask sensitive information for display
-    masked_card_number = '*' * (len(card_number) - 4) + card_number[-4:]
-    masked_cvv = '*' * len(cvv)
-    
+    exp_date_str = input("Enter credit card expiry date (MM/YY): ").strip()
+
+    # Validate expiry date
+    try:
+        exp_month, exp_year = map(int, exp_date_str.split('/'))
+        exp_date = datetime(year=2000 + exp_year, month=exp_month, day=1) 
+        current_date = datetime.now()
+
+        if exp_date < current_date:
+            print("Error: Expiry date has already passed.")
+            return
+    except ValueError:
+        print("Error: Invalid expiry date format. Please enter in MM/YY format.")
+        return
+
+    # Mask sensitive information
+    masked_card_number = "*" * (len(card_number) - 4) + card_number[-4:]
+    masked_cvv = "*" * len(cvv)
+
     # Confirm payment
     confirm_payment = input("\nConfirm payment? (y/n): ").strip().lower()
-    
+
     if confirm_payment == 'y':
         print("\nPayment processed successfully!")
-        
+
         # Generate and display invoice
-        generate_invoice(customer_number)
+        generate_invoice(customer_number, full_name, masked_card_number, masked_cvv, exp_date_str, seat_class, seat_number, amount_due)
     else:
         print("Payment canceled.")
 
@@ -633,21 +661,76 @@ def select_seat():
     return seat_class, seat_number
 
 def process_billing():
-    customer_number = input("Enter customer number (e.g., ESA1234): ").strip()
-    
+    customer_number = input("Enter your customer number (e.g., ESA1234): ").strip()
+
+    # Fetch customer data from the database
+    customer = fetch_customer_data(customer_number)
+
+    if not customer:
+        print(f"Error: Customer {customer_number} not found in the database.")
+        return
+
+    full_name = customer['full_name']
+    print(f"\nCustomer found: {full_name}")
+
+    # Check if customer has a booked seat
+    seat_class, seat_number = check_booked_seat(customer_number)
+
+    if not seat_class or not seat_number:
+        print("No seat booked for this customer. Please book a seat first.")
+        return
+
+    # Calculate amount due
+    amount_due = SEAT_PRICES.get(seat_class, 0)
+    print(f"Seat Class: {seat_class}")
+    print(f"Seat Number: {seat_number}")
+    print(f"Total Amount Due: {amount_due}")
+
     # Collect payment information
-    full_name = input("Enter your full name: ").strip()
     card_number = input("Enter your credit card number: ").strip()
     cvv = input("Enter your CVV: ").strip()
     exp_date = input("Enter credit card expiry date (MM/YY): ").strip()
 
-    # Select a seat and determine amount paid
-    seat_class, seat_number = select_seat()
-    amount_paid = SEAT_PRICES.get(seat_class, SEAT_PRICES['Economy'])  # Default to Economy if invalid
+    # Mask sensitive information
+    masked_card_number = "*" * (len(card_number) - 4) + card_number[-4:]
+    masked_cvv = "*" * len(cvv)
 
-    # Store billing information (this should include database interaction)
-    print(f"Billing information stored successfully for {full_name}. Amount paid: {amount_paid}.")
+    # Confirm payment
+    confirm_payment = input("\nConfirm payment? (y/n): ").strip().lower()
 
+    if confirm_payment == 'y':
+        print("\nPayment processed successfully!")
+
+        # Generate and display invoice
+        generate_invoice(customer_number, full_name, masked_card_number, masked_cvv, exp_date, seat_class, seat_number, amount_due)
+
+    else:
+        print("Payment canceled.")
+
+
+def generate_invoice(customer_number, full_name, masked_card_number, masked_cvv, exp_date, seat_class, seat_number, amount_due):
+    print("\n--- Invoice ---")
+    print(f"Customer Number: {customer_number}")
+    print(f"Full Name: {full_name}")
+    print(f"Card Number: {masked_card_number}")
+    print(f"CVV: {masked_cvv}")
+    print(f"Expiration Date: {exp_date}")
+    print(f"Seat Class: {seat_class}")
+    print(f"Seat Number: {seat_number}")
+    print(f"Amount Paid: {amount_due}")
+    print("------------------------")
+
+def check_booked_seat(customer_number):
+    try:
+        with open('seating_data.csv', 'r') as file:
+            reader = csv.reader(file)
+            for row in reader:
+                if len(row) > 3 and row[3] == customer_number and row[2] == 'Booked':
+                    return row[0], row[1]  # Return seat_class, seat_number
+    except FileNotFoundError:
+        print("Error: Seating data file not found.")
+
+    return None, None #return 2 values from a function not having a specific value
 
 def display_and_book_seat_cli():
     # Get customer number

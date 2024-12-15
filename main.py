@@ -57,7 +57,10 @@ def create_connection():
     return None
 
 # Functions for customer management
-def add_customer_cli():
+def add_customer_cli(dat_file, db_config):
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+
     while True:
         customer_number = input("Enter customer number (e.g., ESA1234): ").strip()
         if customer_number.startswith("ESA") and customer_number[3:].isdigit():
@@ -70,13 +73,57 @@ def add_customer_cli():
     destination = input("Enter destination: ").strip()
     start_place = input("Enter start place: ").strip()
 
-    if all([customer_number, fn, age, sex, destination, start_place]):
-        customer = [customer_number, fn, age, sex, destination, start_place]
-        with open('customer_data.dat', 'ab') as file:
+    customer = [customer_number, fn, age, sex, destination, start_place]
+
+    # Write to .dat file
+    with open(dat_file, 'ab') as file:
+        pickle.dump(customer, file)
+
+    # Write to USER table
+    cursor.execute('''
+        INSERT IGNORE INTO USER (customer_number, full_name, age, sex)
+        VALUES (%s, %s, %s, %s)
+    ''', (customer_number, fn, age, sex))
+
+    # Write to BILLING table
+    cursor.execute('''
+        INSERT IGNORE INTO BILLING (customer_number, destination, start_place)
+        VALUES (%s, %s, %s)
+    ''', (customer_number, destination, start_place))
+
+    conn.commit()
+    conn.close()
+    print("Customer data added successfully.")
+
+def delete_customer(dat_file, db_config, customer_number_to_delete):
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+
+    # Delete from the database
+    cursor.execute("DELETE FROM BILLING WHERE customer_number = %s", (customer_number_to_delete,))
+    cursor.execute("DELETE FROM USER WHERE customer_number = %s", (customer_number_to_delete,))
+    conn.commit()
+
+    # Update the .dat file
+    customers = []
+    if os.path.exists(dat_file):
+        with open(dat_file, 'rb') as file:
+            try:
+                while True:
+                    customer = pickle.load(file)
+                    if customer[0] != customer_number_to_delete:
+                        customers.append(customer)
+            except EOFError:
+                pass
+
+    # Rewrite the updated data back to the .dat file
+    with open(dat_file, 'wb') as file:
+        for customer in customers:
             pickle.dump(customer, file)
-        print("Customer data saved successfully.")
-    else:
-        print("Error: All fields must be filled.")
+
+    conn.close()
+    print(f"Customer {customer_number_to_delete} deleted successfully.")
+
 
 
 def search_customer_cli():
@@ -364,6 +411,59 @@ def add_billing_cli():
         cursor.close()
         connection.close()
 
+def sync_data_to_db(dat_file, db_config):
+    # Connect to MySQL database
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+
+    # Create tables if they don't exist
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS USER (
+            customer_number VARCHAR(20) PRIMARY KEY,
+            full_name VARCHAR(100),
+            age INT,
+            sex VARCHAR(10)
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS BILLING (
+            customer_number VARCHAR(20) PRIMARY KEY,
+            destination VARCHAR(100),
+            start_place VARCHAR(100),
+            FOREIGN KEY(customer_number) REFERENCES USER(customer_number)
+        )
+    ''')
+
+    # Check if the .dat file exists
+    if not os.path.exists(dat_file):
+        print("No data file found. Sync skipped.")
+        return
+
+    # Load data from .dat file
+    with open(dat_file, 'rb') as file:
+        try:
+            while True:
+                customer = pickle.load(file)
+                customer_number, full_name, age, sex, destination, start_place = customer
+
+                # Insert data into USER table
+                cursor.execute('''
+                    INSERT IGNORE INTO USER (customer_number, full_name, age, sex)
+                    VALUES (%s, %s, %s, %s)
+                ''', (customer_number, full_name, age, sex))
+
+                # Insert data into BILLING table
+                cursor.execute('''
+                    INSERT IGNORE INTO BILLING (customer_number, destination, start_place)
+                    VALUES (%s, %s, %s)
+                ''', (customer_number, destination, start_place))
+        except EOFError:
+            pass  # End of file reached
+
+    # Commit and close
+    conn.commit()
+    conn.close()
+    print("Data synced successfully to the database.")
 
 
 
@@ -692,14 +792,25 @@ def billing_section():
         print("Payment canceled.")
 
 def load_customers_from_file(filename):
+    # Check if the file exists before opening it
+    if not os.path.exists(filename):
+        # Return an empty list if the file does not exist
+        print(f"Note: '{filename}' does not exist. Creating a new file.")
+        with open(filename, 'wb') as file:  # Creates an empty file
+            pass
+        return []  # Return an empty list of customers
+    
+    # If the file exists, load the data
     customers = []
-    with open(filename, 'rb') as file:
-        while True:
-            try:
-                customer = pickle.load(file)
-                customers.append(customer)
-            except EOFError:
-                break
+    try:
+        with open(filename, 'rb') as file:
+            while True:
+                try:
+                    customers.append(pickle.load(file))
+                except EOFError:
+                    break  # Reached end of file
+    except Exception as e:
+        print(f"Error loading customers: {e}")
     return customers
 
 def insert_customer_into_db(customer):
@@ -908,14 +1019,6 @@ def display_and_book_seat_cli():
         writer = csv.writer(file)
         writer.writerows(seating_data)
 
-import csv
-import random
-
-# Function to create seating data
-import csv
-import random
-
-
 
 def create_seating_data(filename):
     if os.path.exists(filename):
@@ -966,3 +1069,32 @@ if __name__ == "__main__":
 if __name__ == "__main__":
     while True:
         billing_section()
+
+if __name__ == "__main__":
+    DATA_FILE = 'customer_data.dat'
+    DB_CONFIG = {
+        'host': 'localhost',        # Change to your MySQL server address
+        'user': 'root',             # Your MySQL username
+        'password': 'subhro',     # Your MySQL password
+        'database': 'esa'           # Your MySQL database name
+    }
+
+    # Sync existing data into the database
+    sync_data_to_db(DATA_FILE, DB_CONFIG)
+
+    while True:
+        print("\n1. Add Customer")
+        print("2. Delete Customer")
+        print("3. Exit")
+        choice = input("Enter your choice: ")
+
+        if choice == '1':
+            add_customer_cli(DATA_FILE, DB_CONFIG)
+        elif choice == '2':
+            cust_id = input("Enter customer number to delete: ").strip()
+            delete_customer(DATA_FILE, DB_CONFIG, cust_id)
+        elif choice == '3':
+            print("Exiting program.")
+            break
+        else:
+            print("Invalid choice. Try again.")

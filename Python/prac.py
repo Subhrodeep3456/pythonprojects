@@ -30,15 +30,25 @@ def create_seating_file():
             for seat in 'ABCDEF':
                 writer.writerow([row, seat, seat_class, random.choice(['Available', 'Booked'])])
 initialize_files()
+
 def create_connection():
     try:
+        # Connect to MySQL without specifying a database
         connection = mysql.connector.connect(
-            host='localhost', user='root', password='subhro'
+            host='localhost', 
+            user='root', 
+            password='subhro'
         )
         if connection.is_connected():
             cursor = connection.cursor()
+            
+            # Explicitly create the database if it does not exist
             cursor.execute("CREATE DATABASE IF NOT EXISTS ESA")
+            
+            # Use the newly created database
             cursor.execute("USE ESA")
+            
+            # Create tables if they do not exist
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS user (
                     customer_number VARCHAR(20) PRIMARY KEY,
@@ -60,11 +70,15 @@ def create_connection():
                     FOREIGN KEY (customer_number) REFERENCES user(customer_number)
                 )
             """)
+            
+            # Commit and close the cursor
+            connection.commit()
             cursor.close()
             return connection
     except Error as e:
         print(f"Error connecting to MySQL: {e}")
     return None
+
 def sync_customers_to_mysql():
     connection = create_connection()
     if not connection:
